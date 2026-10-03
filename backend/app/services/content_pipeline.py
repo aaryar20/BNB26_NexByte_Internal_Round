@@ -3,6 +3,8 @@ from app.services.alignment import AlignmentEngine
 from app.services.clip_ranker import ClipRanker
 from app.services.hook_generator import HookGenerator
 from app.services.edit_planner import EditPlanner
+from app.services.platform_adapter import PlatformAdapter
+from app.services.creator_intelligence import CreatorIntelligence
 
 
 class ContentPipeline:
@@ -12,6 +14,8 @@ class ContentPipeline:
         self.clip_ranker = ClipRanker()
         self.hook_generator = HookGenerator()
         self.edit_planner = EditPlanner()
+        self.platform_adapter = PlatformAdapter()
+        self.creator_intelligence = CreatorIntelligence()
 
     def analyze(self, script: str, transcript: dict):
         # 1. Understand the script
@@ -29,6 +33,10 @@ class ContentPipeline:
         # 4. Convert ranked clips into frontend-ready AI suggestions
         for index, clip in enumerate(clips, start=1):
 
+            creator_intelligence = (
+                self.creator_intelligence.analyze(clips)
+                )
+
             clip["clip_id"] = f"clip_{index:03d}"
 
             clip["hooks"] = self.hook_generator.generate(
@@ -38,8 +46,13 @@ class ContentPipeline:
 
             clip["edit_plan"] = self.edit_planner.create_plan(clip)
 
+            clip["platform_adaptations"] = (
+                self.platform_adapter.adapt_clip(clip)
+            )
+
         return {
             "beats": beats,
             "matches": matches,
-            "clips": clips
+            "clips": clips,
+            "creator_intelligence": creator_intelligence
         }
