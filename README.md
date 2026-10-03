@@ -1,9 +1,3 @@
-Yes. **Definitely write the `README.md` now.** Since this is a hackathon repo, a good README makes the project look much more complete and gives your teammates/judges a quick understanding of what you've built.
-
-I would **not** make it overly technical or huge. Make it visually strong, explain the X-factor, architecture, current implementation, and how to run it.
-
-You can replace your current `README.md` with this:
-
 ```markdown
 # ⚡ CreatorAi
 
