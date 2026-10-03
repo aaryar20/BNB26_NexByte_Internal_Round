@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+import json
 
 from fastapi import (
     APIRouter,
@@ -13,19 +14,30 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.models.models import Project, Asset, Script
+
+from app.models.models import (
+    Project,
+    Asset,
+    Script,
+    Clip,
+    Edit
+)
+
 from app.schemas.project import ProjectCreate, ProjectResponse
 from app.schemas.asset import AssetResponse
 from app.schemas.script import ScriptCreate, ScriptResponse
+
 from app.services.transcription import TranscriptionService
-from app.services.content_pipeline import ContentPipeline
-from app.services.mock_transcript import get_mock_transcript
 from app.services.content_pipeline import ContentPipeline
 from app.services.mock_transcript import get_mock_transcript
 
 
 router = APIRouter()
 
+
+# ============================================================
+# HEALTH
+# ============================================================
 
 @router.get("/health")
 def health():
@@ -34,6 +46,10 @@ def health():
         "service": "creator-ai-backend"
     }
 
+
+# ============================================================
+# PROJECTS
+# ============================================================
 
 @router.post(
     "/projects",
@@ -70,8 +86,18 @@ def get_project(
         .first()
     )
 
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
     return project
 
+
+# ============================================================
+# ASSETS
+# ============================================================
 
 @router.post(
     "/projects/{project_id}/assets",
@@ -122,13 +148,28 @@ def upload_asset(
         .lower()
     )
 
-    if extension in [".mp4", ".mov", ".avi", ".mkv", ".webm"]:
+    if extension in [
+        ".mp4",
+        ".mov",
+        ".avi",
+        ".mkv",
+        ".webm"
+    ]:
         asset_type = "video"
 
-    elif extension in [".jpg", ".jpeg", ".png", ".webp"]:
+    elif extension in [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp"
+    ]:
         asset_type = "image"
 
-    elif extension in [".mp3", ".wav", ".m4a"]:
+    elif extension in [
+        ".mp3",
+        ".wav",
+        ".m4a"
+    ]:
         asset_type = "audio"
 
     else:
@@ -148,6 +189,10 @@ def upload_asset(
 
     return asset
 
+
+# ============================================================
+# SCRIPTS
+# ============================================================
 
 @router.post(
     "/projects/{project_id}/scripts",
@@ -182,6 +227,10 @@ def create_script(
 
     return script
 
+
+# ============================================================
+# TRANSCRIPTION
+# ============================================================
 
 @router.post("/assets/{asset_id}/transcribe")
 def transcribe_asset(
@@ -219,12 +268,21 @@ def transcribe_asset(
     }
 
 
-@router.post("/projects/{project_id}/analyze")
+# ============================================================
+# AI ANALYSIS
+# ============================================================
+
+@router.post(
+    "/projects/{project_id}/analyze"
+)
 def analyze_project(
     project_id: str,
     db: Session = Depends(get_db)
 ):
-    # Find project
+    # --------------------------------------------------------
+    # 1. Find project
+    # --------------------------------------------------------
+
     project = (
         db.query(Project)
         .filter(Project.id == project_id)
@@ -237,13 +295,18 @@ def analyze_project(
             detail="Project not found"
         )
 
-    # Find latest script
+    # --------------------------------------------------------
+    # 2. Find latest script
+    # --------------------------------------------------------
+
     script = (
         db.query(Script)
         .filter(
             Script.project_id == project_id
         )
-        .order_by(Script.created_at.desc())
+        .order_by(
+            Script.created_at.desc()
+        )
         .first()
     )
 
@@ -253,11 +316,41 @@ def analyze_project(
             detail="No script found for this project"
         )
 
-    # Temporary transcript
+    # --------------------------------------------------------
+    # 3. Remove previous AI-generated results
+    #
+    # This prevents duplicate clips and edits if /analyze
+    # is called multiple times for the same project.
+    #
+    # Clip -> Edit has cascade="all, delete-orphan", so
+    # deleting a Clip also removes its associated Edits.
+    # --------------------------------------------------------
+
+    existing_clips = (
+        db.query(Clip)
+        .filter(
+            Clip.project_id == project_id
+        )
+        .all()
+    )
+
+    for existing_clip in existing_clips:
+        db.delete(existing_clip)
+
+    db.commit()
+
+    # --------------------------------------------------------
+    # 4. Temporary transcript
+    #
     # Whisper will replace this later.
+    # --------------------------------------------------------
+
     transcript = get_mock_transcript()
 
-    # Run AI pipeline
+    # --------------------------------------------------------
+    # 5. Run AI pipeline
+    # --------------------------------------------------------
+
     pipeline = ContentPipeline()
 
     result = pipeline.analyze(
@@ -265,8 +358,165 @@ def analyze_project(
         transcript=transcript
     )
 
+    # --------------------------------------------------------
+    # 6. Save generated clips and edit operations
+    # --------------------------------------------------------
+
+    for generated_clip in result["clips"]:
+
+        clip = Clip(
+            id=str(uuid.uuid4()),
+            project_id=project_id,
+            start_time=generated_clip["start"],
+            end_time=generated_clip["end"],
+            score=generated_clip.get("score"),
+            hook=(
+                generated_clip["hooks"][0]["text"]
+                if generated_clip.get("hooks")
+                else None
+            ),
+            reason=generated_clip.get(
+                "source_text"
+            ),
+            status="ai_suggested"
+        )
+
+        db.add(clip)
+
+        # Make sure the Clip gets its ID before
+        # creating related Edit records.
+        db.flush()
+
+        # ----------------------------------------------------
+        # Save every AI-suggested edit operation
+        # ----------------------------------------------------
+
+        edit_plan = generated_clip.get(
+            "edit_plan",
+            {}
+        )
+
+        operations = edit_plan.get(
+            "operations",
+            []
+        )
+
+        for operation in operations:
+
+            edit = Edit(
+                id=str(uuid.uuid4()),
+                clip_id=clip.id,
+                operation_type=operation["type"],
+                parameters=json.dumps(
+                    operation
+                ),
+                status=operation.get(
+                    "status",
+                    "ai_suggested"
+                )
+            )
+
+            db.add(edit)
+
+    # --------------------------------------------------------
+    # 7. Commit all clips and edits
+    # --------------------------------------------------------
+
+    db.commit()
+
+    # --------------------------------------------------------
+    # 8. Return existing analysis response
+    # --------------------------------------------------------
+
     return {
         "project_id": project_id,
         "status": "completed",
         "analysis": result
+    }
+
+# ============================================================
+# PERSISTED PROJECT ANALYSIS
+# ============================================================
+
+@router.get("/projects/{project_id}/analysis")
+def get_project_analysis(
+    project_id: str,
+    db: Session = Depends(get_db)
+):
+    # Check project exists
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
+    # Get saved clips
+    clips = (
+        db.query(Clip)
+        .filter(
+            Clip.project_id == project_id
+        )
+        .order_by(
+            Clip.score.desc()
+        )
+        .all()
+    )
+
+    if not clips:
+        raise HTTPException(
+            status_code=404,
+            detail="No analysis found for this project"
+        )
+
+    persisted_clips = []
+
+    for clip in clips:
+
+        edits = (
+            db.query(Edit)
+            .filter(
+                Edit.clip_id == clip.id
+            )
+            .all()
+        )
+
+        clip_data = {
+            "clip_id": clip.id,
+            "start": clip.start_time,
+            "end": clip.end_time,
+            "score": clip.score,
+            "hook": clip.hook,
+            "reason": clip.reason,
+            "status": clip.status,
+            "edits": []
+        }
+
+        for edit in edits:
+
+            try:
+                parameters = json.loads(
+                    edit.parameters
+                )
+            except (TypeError, json.JSONDecodeError):
+                parameters = edit.parameters
+
+            clip_data["edits"].append({
+                "id": edit.id,
+                "operation_type": edit.operation_type,
+                "parameters": parameters,
+                "status": edit.status
+            })
+
+        persisted_clips.append(clip_data)
+
+    return {
+        "project_id": project_id,
+        "status": "completed",
+        "clips": persisted_clips
     }

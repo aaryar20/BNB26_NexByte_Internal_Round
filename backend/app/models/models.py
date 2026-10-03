@@ -1,5 +1,15 @@
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, DateTime, ForeignKey, Text
+
+from sqlalchemy import (
+    Column,
+    String,
+    Float,
+    Integer,
+    DateTime,
+    ForeignKey,
+    Text
+)
+
 from sqlalchemy.orm import relationship
 
 from app.database.database import Base
@@ -25,19 +35,33 @@ class Project(Base):
         cascade="all, delete-orphan"
     )
 
+    clips = relationship(
+        "Clip",
+        back_populates="project",
+        cascade="all, delete-orphan"
+    )
+
 
 class Asset(Base):
     __tablename__ = "assets"
 
     id = Column(String, primary_key=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+
+    project_id = Column(
+        String,
+        ForeignKey("projects.id"),
+        nullable=False
+    )
 
     filename = Column(String, nullable=False)
     filepath = Column(String, nullable=False)
     asset_type = Column(String, nullable=False)
 
     duration = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
 
     project = relationship(
         "Project",
@@ -49,10 +73,18 @@ class Script(Base):
     __tablename__ = "scripts"
 
     id = Column(String, primary_key=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
+
+    project_id = Column(
+        String,
+        ForeignKey("projects.id"),
+        nullable=False
+    )
 
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
 
     project = relationship(
         "Project",
@@ -70,11 +102,27 @@ class ScriptBeat(Base):
     __tablename__ = "script_beats"
 
     id = Column(String, primary_key=True)
-    script_id = Column(String, ForeignKey("scripts.id"), nullable=False)
 
-    beat_type = Column(String, nullable=False)
-    text = Column(Text, nullable=False)
-    order_index = Column(Integer, nullable=False)
+    script_id = Column(
+        String,
+        ForeignKey("scripts.id"),
+        nullable=False
+    )
+
+    beat_type = Column(
+        String,
+        nullable=False
+    )
+
+    text = Column(
+        Text,
+        nullable=False
+    )
+
+    order_index = Column(
+        Integer,
+        nullable=False
+    )
 
     script = relationship(
         "Script",
@@ -86,18 +134,52 @@ class Clip(Base):
     __tablename__ = "clips"
 
     id = Column(String, primary_key=True)
-    project_id = Column(String, ForeignKey("projects.id"), nullable=False)
 
-    start_time = Column(Float, nullable=False)
-    end_time = Column(Float, nullable=False)
+    project_id = Column(
+        String,
+        ForeignKey("projects.id"),
+        nullable=False
+    )
 
-    score = Column(Float, nullable=True)
-    hook = Column(Text, nullable=True)
-    reason = Column(Text, nullable=True)
+    start_time = Column(
+        Float,
+        nullable=False
+    )
+
+    end_time = Column(
+        Float,
+        nullable=False
+    )
+
+    score = Column(
+        Float,
+        nullable=True
+    )
+
+    hook = Column(
+        Text,
+        nullable=True
+    )
+
+    reason = Column(
+        Text,
+        nullable=True
+    )
 
     status = Column(
         String,
         default="ai_suggested"
+    )
+
+    project = relationship(
+        "Project",
+        back_populates="clips"
+    )
+
+    edits = relationship(
+        "Edit",
+        back_populates="clip",
+        cascade="all, delete-orphan"
     )
 
 
@@ -105,14 +187,31 @@ class Edit(Base):
     __tablename__ = "edits"
 
     id = Column(String, primary_key=True)
-    clip_id = Column(String, ForeignKey("clips.id"), nullable=False)
 
-    operation_type = Column(String, nullable=False)
-    parameters = Column(Text, nullable=False)
+    clip_id = Column(
+        String,
+        ForeignKey("clips.id"),
+        nullable=False
+    )
+
+    operation_type = Column(
+        String,
+        nullable=False
+    )
+
+    parameters = Column(
+        Text,
+        nullable=False
+    )
 
     status = Column(
         String,
         default="ai_suggested"
+    )
+
+    clip = relationship(
+        "Clip",
+        back_populates="edits"
     )
 
 
@@ -120,12 +219,24 @@ class TranscriptSegment(Base):
     __tablename__ = "transcript_segments"
 
     id = Column(String, primary_key=True)
+
     asset_id = Column(
         String,
         ForeignKey("assets.id"),
         nullable=False
     )
 
-    start_time = Column(Float, nullable=False)
-    end_time = Column(Float, nullable=False)
-    text = Column(Text, nullable=False)
+    start_time = Column(
+        Float,
+        nullable=False
+    )
+
+    end_time = Column(
+        Float,
+        nullable=False
+    )
+
+    text = Column(
+        Text,
+        nullable=False
+    )
