@@ -1,0 +1,35 @@
+[
+  {
+    "id": "clip001",
+    "title": "The Content Creation Problem",
+    "start": 0,
+    "end": 23,
+    "duration": 23,
+    "score": 96,
+    "category": "Strong Hook",
+    "reason": "Strong pain-point opening with a clear standalone message.",
+    "format": "9:16"
+  },
+  {
+    "id": "clip002",
+    "title": "How AI Changes Editing",
+    "start": 23,
+    "end": 48,
+    "duration": 25,
+    "score": 92,
+    "category": "Key Insight",
+    "reason": "Explains the main product value clearly and concisely.",
+    "format": "9:16"
+  },
+  {
+    "id": "clip003",
+    "title": "Find Better Content Moments",
+    "start": 15,
+    "end": 38,
+    "duration": 23,
+    "score": 89,
+    "category": "Educational",
+    "reason": "Contains a useful standalone insight for creators.",
+    "format": "9:16"
+  }
+]
