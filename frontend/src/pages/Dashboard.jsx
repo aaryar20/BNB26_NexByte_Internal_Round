@@ -266,44 +266,126 @@ export default function Dashboard() {
         </section>
 
 
-        {/* AI INTELLIGENCE */}
-        <section className="dashboard-section">
+        {/* CREATOR INTELLIGENCE */}
+<section className="dashboard-section">
 
-          <div className="intelligence-card">
+  <div className="dashboard-section-heading">
+    <div>
+      <p className="section-kicker">AI PERFORMANCE</p>
+      <h2>Creator Intelligence</h2>
+    </div>
 
-            <div className="intelligence-icon">
-              <Sparkles size={22} />
-            </div>
+    <div className="creator-intelligence-live">
+      <span></span>
+      ANALYSIS READY
+    </div>
+  </div>
 
-            <div className="intelligence-content">
+  <div className="creator-intelligence-grid">
 
-              <div className="intelligence-label">
-                CREATOR INTELLIGENCE
-              </div>
+    <div className="creator-intelligence-metric creator-card">
+      <div className="creator-metric-top">
+        <Sparkles size={18} />
+        <span>TOP HOOK</span>
+      </div>
 
-              <h2>
-                Your content has
-                <span> 8 high-potential moments.</span>
-              </h2>
+      <h3>
+        “Stop scrolling — you're making this mistake.”
+      </h3>
 
-              <p>
-                Review AI-generated hooks, clip opportunities and editing
-                suggestions before sending them to your editor.
-              </p>
+      <div className="creator-metric-value">92%</div>
 
-            </div>
+      <p>Predicted hook strength</p>
+    </div>
 
-            <button
-              className="intelligence-button"
-              onClick={() => navigate("/suggestions")}
-            >
-              Explore suggestions
-              <ArrowRight size={17} />
-            </button>
 
-          </div>
+    <div className="creator-intelligence-metric creator-card">
+      <div className="creator-metric-top">
+        <Clapperboard size={18} />
+        <span>BEST CLIP</span>
+      </div>
 
-        </section>
+      <h3>Clip #3</h3>
+
+      <div className="creator-metric-value">94/100</div>
+
+      <p>18 sec · High-potential moment</p>
+    </div>
+
+
+    <div className="creator-intelligence-metric creator-card">
+      <div className="creator-metric-top">
+        <TrendingUp size={18} />
+        <span>AVG. ENGAGEMENT</span>
+      </div>
+
+      <div className="creator-metric-value creator-metric-large">
+        84%
+      </div>
+
+      <p>Across AI-generated clips</p>
+    </div>
+
+
+    <div className="creator-intelligence-metric creator-card">
+      <div className="creator-metric-top">
+        <WandSparkles size={18} />
+        <span>CONTENT PATTERN</span>
+      </div>
+
+      <h3>Educational + Fast Hook</h3>
+
+      <div className="creator-pattern-tags">
+        <span>Short-form</span>
+        <span>Fast paced</span>
+        <span>Educational</span>
+      </div>
+    </div>
+
+
+    <div className="creator-intelligence-metric creator-card creator-time-card">
+      <div className="creator-metric-top">
+        <Clock3 size={18} />
+        <span>PRODUCTION TIME SAVED</span>
+      </div>
+
+      <div className="creator-metric-value creator-metric-large">
+        2h 34m
+      </div>
+
+      <p>72% faster than manual editing</p>
+
+      <div className="creator-time-bar">
+        <div style={{ width: "72%" }}></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div className="creator-intelligence-footer creator-card">
+
+    <div>
+      <Sparkles size={18} />
+
+      <div>
+        <strong>8 high-potential moments found</strong>
+        <p>
+          CreatorAI analyzed hooks, clips and content structure.
+        </p>
+      </div>
+    </div>
+
+    <button
+      className="intelligence-button"
+      onClick={() => navigate("/suggestions")}
+    >
+      Explore suggestions
+      <ArrowRight size={17} />
+    </button>
+
+  </div>
+
+</section>
 
 
         {/* RECENT PROJECTS */}

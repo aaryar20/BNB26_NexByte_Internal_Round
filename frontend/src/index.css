@@ -10457,19 +10457,16 @@ aside {
    ============================================== */
 
 .interactive-water-canvas {
-  position: fixed;
+  position: fixed; /* 'moving' is invalid; fixed keeps it over the viewport */
   inset: 0;
-
   width: 100vw;
   height: 100vh;
-
   pointer-events: none;
-
-  z-index: 99999;
-
-  opacity: 0.8;
-
-  mix-blend-mode: multiply;
+  z-index: 9999;
+  opacity: 0.85;
+  mix-blend-mode: screen; /* Blends better with dark/light themes than 'normal' */
+  filter: url('#water-goo') saturate(1.2) hue-rotate(5deg);
+  transition: opacity 1s ease;
 }
 
 button,
@@ -10490,5 +10487,307 @@ a:active,
 @media (prefers-reduced-motion: reduce) {
   .interactive-water-canvas {
     display: none;
+  }
+}
+/* =====================================================
+   ULTRA SMOOTH GLOBAL INTERACTIONS
+   ===================================================== */
+
+button,
+a,
+[role="button"],
+.clickable {
+  transform: translate3d(0, 0, 0);
+
+  transition:
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 450ms ease,
+    opacity 450ms ease,
+    filter 650ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  will-change: transform;
+}
+
+button:hover,
+a:hover,
+[role="button"]:hover,
+.clickable:hover {
+  transform: translate3d(0, -1px, 0);
+  filter: brightness(1.015);
+}
+
+button:active,
+a:active,
+[role="button"]:active,
+.clickable:active {
+  transform: translate3d(0, 0, 0) scale(0.99);
+
+  transition-duration: 140ms;
+}
+
+
+/* CARDS — EXTREMELY SUBTLE LIFT */
+
+.project-card,
+.clip-card,
+.export-detail-card,
+.export-recipe-item,
+.platform-summary-card,
+.platform-optimization-card {
+  transition:
+    transform 700ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 700ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 700ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 700ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.project-card:hover,
+.clip-card:hover,
+.export-detail-card:hover,
+.export-recipe-item:hover,
+.platform-summary-card:hover,
+.platform-optimization-card:hover {
+  transform: translateY(-2px);
+
+  border-color: rgba(90, 33, 50, 0.11);
+
+  box-shadow:
+    0 12px 32px rgba(90, 33, 50, 0.045);
+}
+
+
+/* ICONS */
+
+button svg,
+a svg,
+[role="button"] svg {
+  transition:
+    transform 600ms cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 500ms ease;
+}
+
+button:hover svg,
+a:hover svg,
+[role="button"]:hover svg {
+  transform: translateX(1px);
+}
+
+
+/* SIDEBAR NAVIGATION */
+
+.creator-sidebar a {
+  transition:
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    color 500ms ease,
+    box-shadow 650ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.creator-sidebar a:hover {
+  transform: translateX(2px);
+}
+
+
+/* ACCESSIBILITY */
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  a,
+  [role="button"],
+  .clickable,
+  .project-card,
+  .clip-card,
+  .export-detail-card,
+  .export-recipe-item,
+  .platform-summary-card,
+  .platform-optimization-card {
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}
+/* =====================================================
+   CREATOR INTELLIGENCE DASHBOARD
+   ===================================================== */
+
+.creator-intelligence-live {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 33, 50, 0.12);
+  background: rgba(255, 255, 255, 0.42);
+  color: var(--wine);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+.creator-intelligence-live span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--wine);
+  box-shadow: 0 0 8px rgba(90, 33, 50, 0.35);
+}
+
+.creator-intelligence-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.creator-intelligence-metric {
+  min-height: 175px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.creator-metric-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--wine);
+}
+
+.creator-metric-top span {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.creator-metric-top svg {
+  opacity: 0.8;
+}
+
+.creator-intelligence-metric h3 {
+  margin: 20px 0 8px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.creator-intelligence-metric p {
+  margin: 7px 0 0;
+  color: var(--text-soft);
+  font-size: 12px;
+}
+
+.creator-metric-value {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-size: 29px;
+  font-weight: 600;
+  color: var(--wine);
+}
+
+.creator-metric-large {
+  margin-top: 24px;
+  font-size: 40px;
+}
+
+.creator-pattern-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.creator-pattern-tags span {
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(90, 33, 50, 0.065);
+  border: 1px solid rgba(90, 33, 50, 0.06);
+  color: var(--wine);
+  font-size: 10px;
+}
+
+.creator-time-card {
+  grid-column: span 2;
+}
+
+.creator-time-bar {
+  height: 5px;
+  width: 100%;
+  margin-top: 17px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(90, 33, 50, 0.08);
+}
+
+.creator-time-bar div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--wine);
+}
+
+.creator-intelligence-footer {
+  margin-top: 14px;
+  padding: 18px 20px;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.creator-intelligence-footer > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.creator-intelligence-footer > div > svg {
+  color: var(--wine);
+}
+
+.creator-intelligence-footer strong {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.creator-intelligence-footer p {
+  margin: 3px 0 0;
+  color: var(--text-soft);
+  font-size: 11px;
+}
+
+.creator-intelligence-metric,
+.creator-intelligence-footer {
+  transition:
+    transform 750ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 750ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.creator-intelligence-metric:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 40px rgba(90, 33, 50, 0.055);
+}
+
+@media (max-width: 1100px) {
+  .creator-intelligence-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 650px) {
+  .creator-intelligence-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-time-card {
+    grid-column: span 1;
+  }
+
+  .creator-intelligence-footer {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
