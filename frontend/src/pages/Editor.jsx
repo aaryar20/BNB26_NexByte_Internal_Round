@@ -20,20 +20,24 @@ import {
   WandSparkles,
   Clock3,
   Check,
-  Layers3
+  Layers3,
+  Loader2,
+  Download,
+  ExternalLink
 } from "lucide-react";
 
 import Layout from "../components/Layout";
+import { renderClip } from "../services/api";
 
 export default function Editor() {
   const navigate = useNavigate();
 
   const savedClip = JSON.parse(
-    localStorage.getItem("selectedClip")
+    localStorage.getItem("selectedClip") || "null"
   );
 
   const savedProject = JSON.parse(
-    localStorage.getItem("currentProject")
+    localStorage.getItem("currentProject") || "null"
   );
 
   const clip = savedClip || {
@@ -57,40 +61,52 @@ export default function Editor() {
 
   const [activeTool, setActiveTool] = useState("captions");
 
-  function createRenderRequest() {
-    const operations = [
-      {
-        type: "trim",
-        start: clip.start,
-        end: clip.end
-      }
-    ];
+  const [rendering, setRendering] = useState(false);
+  const [renderedVideo, setRenderedVideo] = useState(null);
+  const [renderError, setRenderError] = useState("");
 
-    if (captionsEnabled && captionText.trim()) {
-      operations.push({
-        type: "caption",
-        text: captionText
-      });
+  async function handleRender() {
+    if (!savedProject?.id) {
+      setRenderError("No active project found.");
+      return;
     }
 
-    operations.push({
-      type: "audio",
-      volume: volume
-    });
+    if (!clip?.id) {
+      setRenderError("No clip selected.");
+      return;
+    }
 
-    const request = {
-      source:
-        savedProject?.videoName || "video.mp4",
-      operations,
-      format: aspectRatio
-    };
+    setRendering(true);
+    setRenderError("");
+    setRenderedVideo(null);
 
-    localStorage.setItem(
-      "renderRequest",
-      JSON.stringify(request)
-    );
+    try {
+      const result = await renderClip(
+        savedProject.id,
+        clip.id,
+        aspectRatio
+      );
 
-    navigate("/preview");
+      if (!result?.video_url) {
+        throw new Error("Renderer did not return a video URL.");
+      }
+
+      setRenderedVideo(result.video_url);
+
+      localStorage.setItem(
+        "renderedVideo",
+        JSON.stringify(result)
+      );
+    } catch (error) {
+      console.error("Render failed:", error);
+
+      setRenderError(
+        error.message ||
+          "Video rendering failed. Make sure the video engine is running."
+      );
+    } finally {
+      setRendering(false);
+    }
   }
 
   return (
@@ -110,9 +126,10 @@ export default function Editor() {
             <h1>{clip.title}</h1>
 
             <div className="editor-header-meta">
+
               <span>
                 <Sparkles size={12} />
-                AI Score {clip.score}%
+                AI Score {Math.round((clip.score || 0) * 100) || clip.score}%
               </span>
 
               <span>
@@ -124,6 +141,7 @@ export default function Editor() {
                 <Smartphone size={12} />
                 {aspectRatio}
               </span>
+
             </div>
           </div>
 
@@ -133,6 +151,7 @@ export default function Editor() {
             <button
               className="editor-back-button"
               onClick={() => navigate("/clips")}
+              disabled={rendering}
             >
               <RotateCcw size={15} />
               Back to Clips
@@ -140,15 +159,172 @@ export default function Editor() {
 
             <button
               className="editor-preview-button"
-              onClick={createRenderRequest}
+              onClick={handleRender}
+              disabled={rendering}
             >
-              Preview
-              <ArrowRight size={14} />
+              {rendering ? (
+                <>
+                  <Loader2
+                    size={15}
+                    className="animate-spin"
+                  />
+                  Rendering...
+                </>
+              ) : (
+                <>
+                  Render Video
+                  <ArrowRight size={14} />
+                </>
+              )}
             </button>
 
           </div>
 
         </section>
+
+
+        {/* RENDER RESULT */}
+
+        {(rendering || renderedVideo || renderError) && (
+          <section
+            style={{
+              marginBottom: "20px",
+              padding: "16px",
+              borderRadius: "12px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.03)"
+            }}
+          >
+
+            {rendering && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px"
+                }}
+              >
+                <Loader2
+                  size={18}
+                  className="animate-spin"
+                />
+
+                <div>
+                  <strong>Rendering your clip...</strong>
+
+                  <div
+                    style={{
+                      opacity: 0.65,
+                      fontSize: "13px",
+                      marginTop: "3px"
+                    }}
+                  >
+                    AI-selected clip → FFmpeg → MP4
+                  </div>
+                </div>
+              </div>
+            )}
+
+
+            {renderError && (
+              <div
+                style={{
+                  color: "#ff6b6b",
+                  fontSize: "14px"
+                }}
+              >
+                {renderError}
+              </div>
+            )}
+
+
+            {renderedVideo && !rendering && (
+              <div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "12px"
+                  }}
+                >
+
+                  <div>
+                    <strong>
+                      Render complete
+                    </strong>
+
+                    <div
+                      style={{
+                        opacity: 0.65,
+                        fontSize: "13px",
+                        marginTop: "3px"
+                      }}
+                    >
+                      Your AI-selected clip is ready.
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px"
+                    }}
+                  >
+
+                    <a
+                      href={renderedVideo}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        textDecoration: "none"
+                      }}
+                    >
+                      <ExternalLink size={14} />
+                      Open
+                    </a>
+
+                    <a
+                      href={renderedVideo}
+                      download
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        textDecoration: "none"
+                      }}
+                    >
+                      <Download size={14} />
+                      Download
+                    </a>
+
+                  </div>
+
+                </div>
+
+
+                <video
+                  src={renderedVideo}
+                  controls
+                  playsInline
+                  style={{
+                    width: "100%",
+                    maxHeight: "500px",
+                    borderRadius: "10px",
+                    display: "block",
+                    background: "#000"
+                  }}
+                />
+
+              </div>
+            )}
+
+          </section>
+        )}
 
 
         {/* MAIN EDITOR */}
@@ -180,12 +356,16 @@ export default function Editor() {
                 </div>
 
                 <div className="editor-source-info">
+
                   <strong title={savedProject?.videoName}>
                     {savedProject?.videoName ||
                       "source-video.mp4"}
                   </strong>
 
-                  <span>Original video</span>
+                  <span>
+                    Original video
+                  </span>
+
                 </div>
 
               </div>
@@ -206,6 +386,7 @@ export default function Editor() {
                 </div>
 
                 <div>
+
                   <strong>
                     {formatTime(clip.start)} →{" "}
                     {formatTime(clip.end)}
@@ -214,6 +395,7 @@ export default function Editor() {
                   <span>
                     {clip.duration} seconds
                   </span>
+
                 </div>
 
                 <Check size={14} />
@@ -234,7 +416,9 @@ export default function Editor() {
                 <QuickTool
                   icon={Captions}
                   label="Captions"
-                  active={activeTool === "captions"}
+                  active={
+                    activeTool === "captions"
+                  }
                   onClick={() =>
                     setActiveTool("captions")
                   }
@@ -243,7 +427,9 @@ export default function Editor() {
                 <QuickTool
                   icon={Volume2}
                   label="Audio"
-                  active={activeTool === "audio"}
+                  active={
+                    activeTool === "audio"
+                  }
                   onClick={() =>
                     setActiveTool("audio")
                   }
@@ -252,7 +438,9 @@ export default function Editor() {
                 <QuickTool
                   icon={Smartphone}
                   label="Format"
-                  active={activeTool === "format"}
+                  active={
+                    activeTool === "format"
+                  }
                   onClick={() =>
                     setActiveTool("format")
                   }
@@ -298,7 +486,6 @@ export default function Editor() {
 
                 <div className="editor-video-pattern" />
 
-
                 <div className="editor-frame-top">
 
                   <span>
@@ -318,6 +505,7 @@ export default function Editor() {
                     setPlaying(!playing)
                   }
                 >
+
                   {playing ? (
                     <Pause
                       size={22}
@@ -329,15 +517,18 @@ export default function Editor() {
                       fill="currentColor"
                     />
                   )}
+
                 </button>
 
 
                 {captionsEnabled &&
                   captionText.trim() && (
                     <div className="editor-caption-preview">
+
                       <span>
                         {captionText}
                       </span>
+
                     </div>
                   )}
 
@@ -358,6 +549,7 @@ export default function Editor() {
                   setPlaying(!playing)
                 }
               >
+
                 {playing ? (
                   <Pause
                     size={17}
@@ -369,6 +561,7 @@ export default function Editor() {
                     fill="currentColor"
                   />
                 )}
+
               </button>
 
               <span>
@@ -376,11 +569,13 @@ export default function Editor() {
               </span>
 
               <div className="editor-playback-track">
+
                 <div className="editor-playback-progress">
 
                   <span className="editor-playhead" />
 
                 </div>
+
               </div>
 
               <span>
@@ -414,7 +609,9 @@ export default function Editor() {
                 <RatioButton
                   icon={Smartphone}
                   label="9:16"
-                  active={aspectRatio === "9:16"}
+                  active={
+                    aspectRatio === "9:16"
+                  }
                   onClick={() =>
                     setAspectRatio("9:16")
                   }
@@ -423,7 +620,9 @@ export default function Editor() {
                 <RatioButton
                   icon={Square}
                   label="1:1"
-                  active={aspectRatio === "1:1"}
+                  active={
+                    aspectRatio === "1:1"
+                  }
                   onClick={() =>
                     setAspectRatio("1:1")
                   }
@@ -432,7 +631,9 @@ export default function Editor() {
                 <RatioButton
                   icon={Monitor}
                   label="16:9"
-                  active={aspectRatio === "16:9"}
+                  active={
+                    aspectRatio === "16:9"
+                  }
                   onClick={() =>
                     setAspectRatio("16:9")
                   }
@@ -454,7 +655,9 @@ export default function Editor() {
 
                 <div>
                   <Captions size={15} />
-                  <span>Show captions</span>
+                  <span>
+                    Show captions
+                  </span>
                 </div>
 
                 <button
@@ -502,13 +705,17 @@ export default function Editor() {
               <div className="editor-volume-heading">
 
                 <div>
+
                   {volume === 0 ? (
                     <VolumeX size={15} />
                   ) : (
                     <Volume2 size={15} />
                   )}
 
-                  <span>Volume</span>
+                  <span>
+                    Volume
+                  </span>
+
                 </div>
 
                 <strong>
@@ -540,7 +747,9 @@ export default function Editor() {
 
               <div>
                 <Sparkles size={14} />
-                <span>AI RECOMMENDATION</span>
+                <span>
+                  AI RECOMMENDATION
+                </span>
               </div>
 
               <p>
@@ -564,16 +773,20 @@ export default function Editor() {
 
             <div>
               <span>TIMELINE</span>
+
               <strong>
                 {clip.duration} second composition
               </strong>
+
             </div>
 
             <div>
               <Scissors size={13} />
+
               {formatTime(clip.start)}
               {" → "}
               {formatTime(clip.end)}
+
             </div>
 
           </div>
@@ -586,8 +799,13 @@ export default function Editor() {
               title="Video"
             >
               <div className="timeline-video-block">
+
                 <Video size={12} />
-                <span>{clip.title}</span>
+
+                <span>
+                  {clip.title}
+                </span>
+
               </div>
             </TimelineRow>
 
@@ -598,12 +816,14 @@ export default function Editor() {
                 title="Captions"
               >
                 <div className="timeline-caption-block">
+
                   <Captions size={12} />
 
                   <span>
                     {captionText ||
                       "Caption layer"}
                   </span>
+
                 </div>
               </TimelineRow>
             )}
@@ -613,7 +833,9 @@ export default function Editor() {
               icon={Volume2}
               title="Audio"
             >
+
               <div className="timeline-audio-block">
+
                 <Music size={12} />
 
                 <span>
@@ -621,9 +843,11 @@ export default function Editor() {
                 </span>
 
                 <div className="timeline-waveform">
+
                   {Array.from({
                     length: 30
                   }).map((_, index) => (
+
                     <span
                       key={index}
                       style={{
@@ -633,10 +857,13 @@ export default function Editor() {
                         }px`
                       }}
                     />
+
                   ))}
+
                 </div>
 
               </div>
+
             </TimelineRow>
 
 
@@ -754,8 +981,13 @@ function TimelineRow({
     <div className="editor-timeline-row">
 
       <div className="timeline-label">
+
         <Icon size={13} />
-        <span>{title}</span>
+
+        <span>
+          {title}
+        </span>
+
       </div>
 
       <div className="timeline-track">

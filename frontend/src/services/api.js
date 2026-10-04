@@ -46,7 +46,6 @@ export async function createProject(name, description = "") {
   return handleResponse(response);
 }
 
-//GET PROJECT
 // GET ALL PROJECTS
 
 export async function getProjects() {
@@ -128,6 +127,28 @@ export async function analyzeProject(projectId) {
 export async function getProjectAnalysis(projectId) {
   const response = await fetch(
     `${API_BASE_URL}/projects/${projectId}/analysis`
+  );
+
+  return handleResponse(response);
+}
+
+
+
+
+
+export async function renderClip(projectId, clipId, format = "9:16") {
+  const response = await fetch(
+    `${API_BASE_URL}/projects/${projectId}/render`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clip_id: clipId,
+        format,
+      }),
+    }
   );
 
   return handleResponse(response);

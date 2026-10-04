@@ -134,16 +134,63 @@ def render_video(payload: ProductionPlanPayload):
             cmd.extend(["-ss", str(payload.background_music.start)])
         cmd.extend(["-i", payload.background_music.source])
 
+    # --------------------------------------------------------
+    # Build FFmpeg filter graph
+    #
+    # Some source videos contain no audio stream.
+    # Detect audio availability per source and only build
+    # audio filters when audio actually exists.
+    # --------------------------------------------------------
+
+    source_has_audio = []
+
+    for clip in timeline:
+        probe_cmd = [
+            "ffprobe",
+            "-v", "error",
+            "-select_streams", "a:0",
+            "-show_entries", "stream=index",
+            "-of", "csv=p=0",
+            clip.source
+        ]
+
+        try:
+            probe_result = subprocess.run(
+                probe_cmd,
+                check=False,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+
+            has_audio = bool(
+                probe_result.stdout.decode(
+                    "utf-8",
+                    errors="ignore"
+                ).strip()
+            )
+
+        except Exception:
+            has_audio = False
+
+        source_has_audio.append(has_audio)
+
+    any_audio = any(source_has_audio)
+
     filter_complex = ""
+
     for i, clip in enumerate(timeline):
+
         v_trim = f"trim=start={clip.start}"
-        a_trim = f"atrim=start={clip.start}"
+
         if clip.end is not None and clip.end > clip.start:
             v_trim += f":end={clip.end}"
-            a_trim += f":end={clip.end}"
 
-        # 1. Handle Rotation
+        # ----------------------------------------------------
+        # Rotation
+        # ----------------------------------------------------
+
         rotate_filter = ""
+
         if payload.rotation == 90:
             rotate_filter = "transpose=1,"
         elif payload.rotation == -90 or payload.rotation == 270:
@@ -151,7 +198,10 @@ def render_video(payload: ProductionPlanPayload):
         elif payload.rotation == 180:
             rotate_filter = "vflip,hflip,"
 
-        # 2. Determine Canvas Target Dimensions
+        # ----------------------------------------------------
+        # Target dimensions
+        # ----------------------------------------------------
+
         if payload.format == "9:16":
             target_w, target_h = 1080, 1920
         elif payload.format == "16:9":
@@ -161,70 +211,299 @@ def render_video(payload: ProductionPlanPayload):
         else:
             target_w, target_h = 1080, 1920
 
-        # 3. Fit vs Fill Scaling Logic
+        # ----------------------------------------------------
+        # Fit / Fill
+        # ----------------------------------------------------
+
         if payload.fit_mode == "fill":
-            # Zooms in and chops off the edges to cover the entire canvas
-            aspect_filter = f"{rotate_filter}scale={target_w}:{target_h}:force_original_aspect_ratio=increase,crop={target_w}:{target_h},setsar=1"
-        else:
-            # "fit" (Default): Shrinks to fit, adds black bars to pad the empty space safely
-            aspect_filter = f"{rotate_filter}scale={target_w}:{target_h}:force_original_aspect_ratio=decrease,pad={target_w}:{target_h}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1"
-
-        filter_complex += (
-            f"[{i}:v]{v_trim},setpts=PTS-STARTPTS,{aspect_filter}[v{i}];"
-            f"[{i}:a]{a_trim},asetpts=PTS-STARTPTS,aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo[a{i}];"
-        )
-
-    concat_inputs = "".join([f"[v{i}][a{i}]" for i in range(len(timeline))])
-    filter_complex += f"{concat_inputs}concat=n={len(timeline)}:v=1:a=1[v_stitched][a_stitched];"
-
-    # Captions Logic
-    if payload.captions and payload.captions.enabled:
-        if payload.captions.elements and len(payload.captions.elements) > 0:
-            text_filters = []
-            for text_el in payload.captions.elements:
-                clean_text = text_el.text.replace("'", "").replace(":", "").replace('"', "")
-                text_filters.append(
-                    f"drawtext=fontfile='font.ttf':text='{clean_text}':fontsize=64:fontcolor=white:"
-                    f"box=1:boxcolor=black@0.6:boxborderw=20:"
-                    f"x=(w-text_w)/2:y=h-(h/4):enable='between(t,{text_el.start},{text_el.end})'"
-                )
-            filter_complex += f"[v_stitched]{','.join(text_filters)}[vout];"
-        elif payload.captions.text:
-            clean_text = payload.captions.text.replace("'", "").replace(":", "").replace('"', "")
-            filter_complex += (
-                f"[v_stitched]drawtext=fontfile='font.ttf':text='{clean_text}':fontsize=64:fontcolor=white:"
-                f"box=1:boxcolor=black@0.6:boxborderw=20:"
-                f"x=(w-text_w)/2:y=h-(h/4)[vout];"
+            aspect_filter = (
+                f"{rotate_filter}"
+                f"scale={target_w}:{target_h}:"
+                f"force_original_aspect_ratio=increase,"
+                f"crop={target_w}:{target_h},"
+                f"setsar=1"
             )
         else:
-            filter_complex += "[v_stitched]copy[vout];"
-    else:
-        filter_complex += "[v_stitched]copy[vout];"
+            aspect_filter = (
+                f"{rotate_filter}"
+                f"scale={target_w}:{target_h}:"
+                f"force_original_aspect_ratio=decrease,"
+                f"pad={target_w}:{target_h}:"
+                f"(ow-iw)/2:(oh-ih)/2:"
+                f"color=black,setsar=1"
+            )
 
-    orig_vol = (payload.original_audio.volume / 100.0) if (payload.original_audio and payload.original_audio.enabled) else 0.0
+        # ----------------------------------------------------
+        # Video stream
+        # ----------------------------------------------------
 
-    if has_music:
-        music_vol = payload.background_music.volume / 100.0
-        if payload.background_music.ducking and orig_vol > 0.0:
-            music_vol *= 0.5
         filter_complex += (
-            f"[a_stitched]volume={orig_vol}[orig_a];"
-            f"[{music_idx}:a]aformat=sample_fmts=fltp:sample_rates=44100:channel_layouts=stereo,volume={music_vol}[bgm];"
-            f"[orig_a][bgm]amix=inputs=2:duration=first[aout]"
+            f"[{i}:v]{v_trim},"
+            f"setpts=PTS-STARTPTS,"
+            f"{aspect_filter}[v{i}];"
         )
-    else:
-        filter_complex += f"[a_stitched]volume={orig_vol}[aout]"
 
-    cmd.extend(["-filter_complex", filter_complex])
-    cmd.extend(["-map", "[vout]", "-map", "[aout]"])
-    cmd.extend(["-c:v", "libx264", "-preset", "ultrafast"])
-    cmd.extend(["-c:a", "aac", output_path])
+        # ----------------------------------------------------
+        # Audio stream — only if source has audio
+        # ----------------------------------------------------
+
+        if source_has_audio[i]:
+
+            a_trim = f"atrim=start={clip.start}"
+
+            if clip.end is not None and clip.end > clip.start:
+                a_trim += f":end={clip.end}"
+
+            filter_complex += (
+                f"[{i}:a]{a_trim},"
+                f"asetpts=PTS-STARTPTS,"
+                f"aformat="
+                f"sample_fmts=fltp:"
+                f"sample_rates=44100:"
+                f"channel_layouts=stereo"
+                f"[a{i}];"
+            )
+
+    # --------------------------------------------------------
+    # Concatenate video
+    # --------------------------------------------------------
+
+    video_concat_inputs = "".join(
+        f"[v{i}]"
+        for i in range(len(timeline))
+    )
+
+    if any_audio:
+        audio_concat_inputs = "".join(
+            f"[a{i}]"
+            for i in range(len(timeline))
+            if source_has_audio[i]
+        )
+
+        # Only use the audio-capable clips when constructing
+        # the audio stream.
+        #
+        # For the current single silent-video demo this branch
+        # is skipped entirely.
+        if all(source_has_audio):
+            filter_complex += (
+                f"{video_concat_inputs}"
+                f"{audio_concat_inputs}"
+                f"concat=n={len(timeline)}:v=1:a=1"
+                f"[v_stitched][a_stitched];"
+            )
+        else:
+            # Mixed audio/no-audio sources:
+            # create a silent audio stream for clips without
+            # audio so the concat remains valid.
+            for i, has_audio in enumerate(source_has_audio):
+                if not has_audio:
+                    filter_complex += (
+                        f"anullsrc="
+                        f"channel_layout=stereo:"
+                        f"sample_rate=44100,"
+                        f"atrim=duration="
+                        f"{max(0, timeline[i].end - timeline[i].start):.3f},"
+                        f"asetpts=PTS-STARTPTS"
+                        f"[a{i}];"
+                    )
+
+            audio_concat_inputs = "".join(
+                f"[a{i}]"
+                for i in range(len(timeline))
+            )
+
+            filter_complex += (
+                f"{video_concat_inputs}"
+                f"{audio_concat_inputs}"
+                f"concat=n={len(timeline)}:v=1:a=1"
+                f"[v_stitched][a_stitched];"
+            )
+
+    else:
+        filter_complex += (
+            f"{video_concat_inputs}"
+            f"concat=n={len(timeline)}:v=1:a=0"
+            f"[v_stitched];"
+        )
+
+    # --------------------------------------------------------
+    # Captions
+    # --------------------------------------------------------
+
+    if payload.captions and payload.captions.enabled:
+
+        if (
+            payload.captions.elements
+            and len(payload.captions.elements) > 0
+        ):
+            text_filters = []
+
+            for text_el in payload.captions.elements:
+
+                clean_text = (
+                    text_el.text
+                    .replace("'", "")
+                    .replace(":", "")
+                    .replace('"', "")
+                )
+
+                text_filters.append(
+                    f"drawtext="
+                    f"fontfile='font.ttf':"
+                    f"text='{clean_text}':"
+                    f"fontsize=64:"
+                    f"fontcolor=white:"
+                    f"box=1:"
+                    f"boxcolor=black@0.6:"
+                    f"boxborderw=20:"
+                    f"x=(w-text_w)/2:"
+                    f"y=h-(h/4):"
+                    f"enable='between(t,{text_el.start},{text_el.end})'"
+                )
+
+            filter_complex += (
+                f"[v_stitched]"
+                f"{','.join(text_filters)}"
+                f"[vout];"
+            )
+
+        elif payload.captions.text:
+
+            clean_text = (
+                payload.captions.text
+                .replace("'", "")
+                .replace(":", "")
+                .replace('"', "")
+            )
+
+            filter_complex += (
+                f"[v_stitched]"
+                f"drawtext="
+                f"fontfile='font.ttf':"
+                f"text='{clean_text}':"
+                f"fontsize=64:"
+                f"fontcolor=white:"
+                f"box=1:"
+                f"boxcolor=black@0.6:"
+                f"boxborderw=20:"
+                f"x=(w-text_w)/2:"
+                f"y=h-(h/4)"
+                f"[vout];"
+            )
+
+        else:
+            filter_complex += (
+                "[v_stitched]copy[vout];"
+            )
+
+    else:
+        filter_complex += (
+            "[v_stitched]copy[vout];"
+        )
+
+    # --------------------------------------------------------
+    # Audio output
+    # --------------------------------------------------------
+
+    if any_audio:
+
+        orig_vol = (
+            payload.original_audio.volume / 100.0
+            if (
+                payload.original_audio
+                and payload.original_audio.enabled
+            )
+            else 0.0
+        )
+
+        if has_music:
+
+            music_vol = (
+                payload.background_music.volume / 100.0
+            )
+
+            if (
+                payload.background_music.ducking
+                and orig_vol > 0.0
+            ):
+                music_vol *= 0.5
+
+            filter_complex += (
+                f"[a_stitched]"
+                f"volume={orig_vol}"
+                f"[orig_a];"
+                f"[{music_idx}:a]"
+                f"aformat="
+                f"sample_fmts=fltp:"
+                f"sample_rates=44100:"
+                f"channel_layouts=stereo,"
+                f"volume={music_vol}"
+                f"[bgm];"
+                f"[orig_a][bgm]"
+                f"amix=inputs=2:"
+                f"duration=first"
+                f"[aout]"
+            )
+
+        else:
+
+            filter_complex += (
+                f"[a_stitched]"
+                f"volume={orig_vol}"
+                f"[aout]"
+            )
+
+    # --------------------------------------------------------
+    # Build FFmpeg command
+    # --------------------------------------------------------
+
+    cmd.extend([
+        "-filter_complex",
+        filter_complex,
+        "-map",
+        "[vout]"
+    ])
+
+    if any_audio:
+        cmd.extend([
+            "-map",
+            "[aout]",
+            "-c:a",
+            "aac"
+        ])
+    else:
+        cmd.extend([
+            "-an"
+        ])
+
+    cmd.extend([
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        output_path
+    ])
 
     try:
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(
+            cmd,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+
     except subprocess.CalledProcessError as e:
-        error_msg = e.stderr.decode("utf-8", errors="ignore")
-        raise HTTPException(status_code=500, detail=f"FFmpeg failed: {error_msg[-300:]}")
+
+        error_msg = e.stderr.decode(
+            "utf-8",
+            errors="ignore"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"FFmpeg failed: {error_msg[-300:]}"
+        )
 
     return {
         "status": "completed",

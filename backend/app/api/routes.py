@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 import json
+import httpx
 
 from fastapi import (
     APIRouter,
@@ -10,6 +11,7 @@ from fastapi import (
     UploadFile,
     HTTPException
 )
+from pydantic import BaseModel
 
 from sqlalchemy.orm import Session
 
@@ -533,3 +535,158 @@ def get_project_analysis(
         "status": "completed",
         "clips": persisted_clips
     }
+# ============================================================
+# VIDEO RENDERING
+# ============================================================
+
+class RenderClipRequest(BaseModel):
+    clip_id: str
+    format: str = "9:16"
+
+@router.post("/projects/{project_id}/render")
+def render_project_clip(
+    project_id: str,
+    render_request: RenderClipRequest,
+    db: Session = Depends(get_db)
+):
+    # --------------------------------------------------------
+    # 1. Check project exists
+    # --------------------------------------------------------
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if not project:
+        raise HTTPException(
+            status_code=404,
+            detail="Project not found"
+        )
+
+    # --------------------------------------------------------
+    # 2. Find selected clip
+    # --------------------------------------------------------
+
+    clip = (
+        db.query(Clip)
+        .filter(
+            Clip.id == render_request.clip_id,
+            Clip.project_id == project_id
+        )
+        .first()
+    )
+
+    if not clip:
+        raise HTTPException(
+            status_code=404,
+            detail="Clip not found for this project"
+        )
+
+    # --------------------------------------------------------
+    # 3. Find video asset for this project
+    # --------------------------------------------------------
+
+    asset = (
+        db.query(Asset)
+        .filter(
+            Asset.project_id == project_id,
+            Asset.asset_type == "video"
+        )
+        .first()
+    )
+
+    if not asset:
+        raise HTTPException(
+            status_code=404,
+            detail="No video asset found for this project"
+        )
+
+    # --------------------------------------------------------
+    # 4. Resolve absolute source path
+    #
+    # The main backend owns the uploaded video.
+    # The video engine needs a filesystem path it can access.
+    # --------------------------------------------------------
+
+    source_path = os.path.abspath(asset.filepath)
+
+    if not os.path.exists(source_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Source video not found: {source_path}"
+        )
+
+    # --------------------------------------------------------
+    # 5. Build video-engine render payload
+    # --------------------------------------------------------
+
+    render_payload = {
+        "clips": [
+            {
+                "source": source_path,
+                "start": float(clip.start_time),
+                "end": float(clip.end_time)
+            }
+        ],
+        "original_audio": None,
+        "format": render_request.format,
+        "rotation": 0,
+        "fit_mode": "cover"
+    }
+
+    # --------------------------------------------------------
+    # 6. Send render request to video engine
+    # --------------------------------------------------------
+
+    video_engine_url = "http://127.0.0.1:9000/render"
+
+    try:
+        with httpx.Client(timeout=300.0) as client:
+            response = client.post(
+                video_engine_url,
+                json=render_payload
+            )
+
+    except httpx.RequestError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Video engine unavailable: {str(error)}"
+        )
+
+    # --------------------------------------------------------
+    # 7. Handle video-engine errors
+    # --------------------------------------------------------
+
+    if response.status_code != 200:
+        try:
+            error_data = response.json()
+        except Exception:
+            error_data = response.text
+
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": "Video rendering failed",
+                "video_engine_response": error_data
+            }
+        )
+
+    # --------------------------------------------------------
+    # 8. Return render result
+    # --------------------------------------------------------
+
+    result = response.json()
+
+    video_url = result.get("video_url")
+
+    if video_url:
+        result["video_url"] = (
+            f"http://127.0.0.1:9000{video_url}"
+        )
+
+    result["project_id"] = project_id
+    result["clip_id"] = clip.id
+
+    return result
