@@ -46,6 +46,18 @@ export async function createProject(name, description = "") {
   return handleResponse(response);
 }
 
+//GET PROJECT
+// GET ALL PROJECTS
+
+export async function getProjects() {
+  const response = await fetch(
+    `${API_BASE_URL}/projects`
+  );
+
+  return handleResponse(response);
+}
+
+
 
 // GET PROJECT
 
@@ -105,6 +117,17 @@ export async function analyzeProject(projectId) {
     {
       method: "POST",
     }
+  );
+
+  return handleResponse(response);
+}
+
+
+// GET PERSISTED AI ANALYSIS
+
+export async function getProjectAnalysis(projectId) {
+  const response = await fetch(
+    `${API_BASE_URL}/projects/${projectId}/analysis`
   );
 
   return handleResponse(response);

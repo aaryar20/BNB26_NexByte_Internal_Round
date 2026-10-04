@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 import Layout from "../components/Layout";
-
+import { createProject as createBackendProject, uploadAsset } from "../services/api";
 export default function NewProject() {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -48,22 +48,45 @@ export default function NewProject() {
     selectVideo(file);
   }
 
-  function createProject() {
+  async function createProject() {
     if (!projectName.trim() || !video) {
       alert("Please enter a project name and upload a video.");
       return;
     }
 
-    localStorage.setItem(
-      "currentProject",
-      JSON.stringify({
-        name: projectName.trim(),
-        platform,
-        videoName: video.name
-      })
-    );
+    try {
+      // 1. Create the project in the FastAPI backend
+      const project = await createBackendProject(
+        projectName.trim(),
+        `Target platform: ${platform}`
+      );
 
-    navigate("/assets");
+      // 2. Upload the selected video to the backend
+      const asset = await uploadAsset(project.id, video);
+
+      // 3. Store the backend project information locally
+      //    so the next pages know which project is active.
+      localStorage.setItem(
+        "currentProject",
+        JSON.stringify({
+          id: project.id,
+          name: project.name,
+          platform,
+          videoName: video.name,
+          assetId: asset.id,
+        })
+      );
+
+      // 4. Continue to the Assets page
+      navigate("/assets");
+    } catch (error) {
+      console.error("Failed to create project:", error);
+
+      alert(
+        error.message ||
+          "Something went wrong while creating the project."
+      );
+    }
   }
 
   return (

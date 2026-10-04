@@ -13,10 +13,15 @@ import {
   FolderOpen,
   FileVideo,
   Clock3,
-  X
+  X,
 } from "lucide-react";
 
 import Layout from "../components/Layout";
+
+import {
+  analyzeProject,
+  getProjectAnalysis,
+} from "../services/api";
 
 export default function AssetLibrary() {
   const navigate = useNavigate();
@@ -26,18 +31,43 @@ export default function AssetLibrary() {
   const [analysisComplete, setAnalysisComplete] = useState(false);
   const [activeFilter, setActiveFilter] = useState("Videos");
   const [extraAssets, setExtraAssets] = useState([]);
+  const [analysisResult, setAnalysisResult] = useState(null);
+  const [error, setError] = useState("");
 
   const savedProject = JSON.parse(
-    localStorage.getItem("currentProject")
+    localStorage.getItem("currentProject") || "null"
   );
 
-  function analyzeVideo() {
-    setAnalyzing(true);
+  async function analyzeVideo() {
+    if (!savedProject?.id) {
+      setError(
+        "No active project found. Please create a project first."
+      );
+      return;
+    }
 
-    setTimeout(() => {
-      setAnalyzing(false);
+    setAnalyzing(true);
+    setAnalysisComplete(false);
+    setError("");
+
+    try {
+      // Call the real AI analysis pipeline
+      const result = await analyzeProject(savedProject.id);
+
+      setAnalysisResult(result);
       setAnalysisComplete(true);
-    }, 3000);
+    } catch (error) {
+      console.error("Analysis failed:", error);
+
+      setError(
+        error.message ||
+          "Something went wrong while analyzing the video."
+      );
+
+      setAnalysisComplete(false);
+    } finally {
+      setAnalyzing(false);
+    }
   }
 
   function continueToResults() {
@@ -61,13 +91,15 @@ export default function AssetLibrary() {
         name: file.name,
         size: file.size,
         type,
-        file
+        file,
       };
     });
 
     setExtraAssets((current) => [
       ...current,
-      ...newAssets.filter((asset) => asset.type !== "Other")
+      ...newAssets.filter(
+        (asset) => asset.type !== "Other"
+      ),
     ]);
 
     event.target.value = "";
@@ -85,6 +117,11 @@ export default function AssetLibrary() {
 
   const showSourceVideo = activeFilter === "Videos";
 
+  const clipCount =
+    analysisResult?.analysis?.clips?.length ||
+    analysisResult?.clips?.length ||
+    0;
+
   return (
     <Layout>
       <div className="asset-library-page">
@@ -92,7 +129,6 @@ export default function AssetLibrary() {
         {/* HEADER */}
 
         <section className="asset-library-header">
-
           <div>
             <div className="asset-library-eyebrow">
               <FolderOpen size={13} />
@@ -126,9 +162,7 @@ export default function AssetLibrary() {
             hidden
             onChange={handleAssetUpload}
           />
-
         </section>
-
 
         {/* PROJECT INFORMATION */}
 
@@ -136,7 +170,6 @@ export default function AssetLibrary() {
           <section className="asset-project-strip">
 
             <div className="asset-project-main">
-
               <div className="asset-project-icon">
                 <FileVideo size={18} />
               </div>
@@ -145,7 +178,6 @@ export default function AssetLibrary() {
                 <span>ACTIVE PROJECT</span>
                 <strong>{savedProject.name}</strong>
               </div>
-
             </div>
 
             <div className="asset-project-divider" />
@@ -165,7 +197,6 @@ export default function AssetLibrary() {
 
           </section>
         )}
-
 
         {/* LIBRARY TOOLBAR */}
 
@@ -204,7 +235,6 @@ export default function AssetLibrary() {
           </span>
 
         </section>
-
 
         {/* ASSET GRID */}
 
@@ -257,33 +287,28 @@ export default function AssetLibrary() {
 
         </section>
 
+        {/* ERROR */}
 
-        {/* AI ANALYSIS */}
+        {error && (
+          <section className="asset-ai-panel">
+            <div className="asset-analysis-complete">
+              <div className="asset-complete-copy">
 
-        <section className="asset-ai-panel">
-
-          {!analyzing && !analysisComplete && (
-            <div className="asset-ai-ready">
-
-              <div className="asset-ai-copy">
-
-                <div className="asset-ai-icon">
-                  <Sparkles size={19} />
+                <div className="asset-complete-icon">
+                  <X size={20} />
                 </div>
 
                 <div>
-                  <span className="asset-ai-label">
-                    CREATOR INTELLIGENCE
+                  <span className="asset-complete-label">
+                    ANALYSIS FAILED
                   </span>
 
                   <h2>
-                    Ready for AI analysis.
+                    Something went wrong.
                   </h2>
 
                   <p>
-                    Let CreatorAI study your source video, generate
-                    the transcript and discover the moments most
-                    likely to become strong short-form clips.
+                    {error}
                   </p>
                 </div>
 
@@ -291,16 +316,61 @@ export default function AssetLibrary() {
 
               <button
                 onClick={analyzeVideo}
-                className="asset-analyze-button"
+                className="asset-results-button"
               >
-                <Sparkles size={15} />
-                Analyze Video
-                <ArrowRight size={14} />
+                Try Again
+                <ArrowRight size={15} />
               </button>
 
             </div>
-          )}
+          </section>
+        )}
 
+        {/* AI ANALYSIS */}
+
+        <section className="asset-ai-panel">
+
+          {!analyzing &&
+            !analysisComplete &&
+            !error && (
+              <div className="asset-ai-ready">
+
+                <div className="asset-ai-copy">
+
+                  <div className="asset-ai-icon">
+                    <Sparkles size={19} />
+                  </div>
+
+                  <div>
+                    <span className="asset-ai-label">
+                      CREATOR INTELLIGENCE
+                    </span>
+
+                    <h2>
+                      Ready for AI analysis.
+                    </h2>
+
+                    <p>
+                      Let CreatorAI study your source video,
+                      generate the transcript and discover the
+                      moments most likely to become strong
+                      short-form clips.
+                    </p>
+                  </div>
+
+                </div>
+
+                <button
+                  onClick={analyzeVideo}
+                  className="asset-analyze-button"
+                >
+                  <Sparkles size={15} />
+                  Analyze Video
+                  <ArrowRight size={14} />
+                </button>
+
+              </div>
+            )}
 
           {/* ANALYZING */}
 
@@ -330,7 +400,6 @@ export default function AssetLibrary() {
 
               </div>
 
-
               <div className="asset-analysis-progress">
 
                 <div className="analysis-progress-track">
@@ -356,10 +425,12 @@ export default function AssetLibrary() {
 
                   <AnalysisStep
                     text="Detecting hooks"
+                    active
                   />
 
                   <AnalysisStep
                     text="Creating clip suggestions"
+                    active
                   />
 
                 </div>
@@ -368,7 +439,6 @@ export default function AssetLibrary() {
 
             </div>
           )}
-
 
           {/* COMPLETE */}
 
@@ -391,7 +461,8 @@ export default function AssetLibrary() {
                   </h2>
 
                   <p>
-                    CreatorAI found 8 high-potential moments and
+                    CreatorAI found {clipCount} high-potential{" "}
+                    {clipCount === 1 ? "moment" : "moments"} and
                     generated your transcript.
                   </p>
                 </div>
@@ -417,12 +488,24 @@ export default function AssetLibrary() {
 }
 
 
-function ProjectDetail({ label, value, truncate }) {
+/* -------------------------------- */
+/* PROJECT DETAIL                   */
+/* -------------------------------- */
+
+function ProjectDetail({
+  label,
+  value,
+  truncate,
+}) {
   return (
     <div className="asset-project-detail">
       <span>{label}</span>
 
-      <strong className={truncate ? "asset-truncate" : ""}>
+      <strong
+        className={
+          truncate ? "asset-truncate" : ""
+        }
+      >
         {value}
       </strong>
     </div>
@@ -430,11 +513,15 @@ function ProjectDetail({ label, value, truncate }) {
 }
 
 
+/* -------------------------------- */
+/* FILTER BUTTON                    */
+/* -------------------------------- */
+
 function FilterButton({
   icon: Icon,
   text,
   active,
-  onClick
+  onClick,
 }) {
   return (
     <button
@@ -450,6 +537,10 @@ function FilterButton({
 }
 
 
+/* -------------------------------- */
+/* SOURCE VIDEO CARD                */
+/* -------------------------------- */
+
 function SourceVideoCard({ fileName }) {
   return (
     <article className="asset-card">
@@ -463,7 +554,10 @@ function SourceVideoCard({ fileName }) {
           className="asset-play-button"
           aria-label="Preview source video"
         >
-          <Play size={18} fill="currentColor" />
+          <Play
+            size={18}
+            fill="currentColor"
+          />
         </button>
 
         <div className="asset-source-badge">
@@ -475,7 +569,6 @@ function SourceVideoCard({ fileName }) {
         </div>
 
       </div>
-
 
       <div className="asset-card-information">
 
@@ -506,7 +599,14 @@ function SourceVideoCard({ fileName }) {
 }
 
 
-function UploadedAssetCard({ asset, onRemove }) {
+/* -------------------------------- */
+/* UPLOADED ASSET CARD              */
+/* -------------------------------- */
+
+function UploadedAssetCard({
+  asset,
+  onRemove,
+}) {
   const Icon =
     asset.type === "Videos"
       ? Video
@@ -560,10 +660,14 @@ function UploadedAssetCard({ asset, onRemove }) {
 }
 
 
+/* -------------------------------- */
+/* ANALYSIS STEP                    */
+/* -------------------------------- */
+
 function AnalysisStep({
   text,
   complete,
-  active
+  active,
 }) {
   return (
     <div
@@ -577,6 +681,7 @@ function AnalysisStep({
     >
 
       <span className="analysis-step-indicator">
+
         {complete ? (
           <CheckCircle2 size={12} />
         ) : active ? (
@@ -584,6 +689,7 @@ function AnalysisStep({
         ) : (
           <span />
         )}
+
       </span>
 
       {text}
@@ -592,6 +698,10 @@ function AnalysisStep({
   );
 }
 
+
+/* -------------------------------- */
+/* FILE SIZE                        */
+/* -------------------------------- */
 
 function formatFileSize(bytes) {
   if (!bytes) return "0 MB";

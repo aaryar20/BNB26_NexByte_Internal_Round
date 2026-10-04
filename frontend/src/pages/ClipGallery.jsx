@@ -12,11 +12,11 @@ import {
   Trophy,
   LayoutGrid,
   Check,
-  Eye
+  Eye,
 } from "lucide-react";
 
 import Layout from "../components/Layout";
-import { getClips } from "../services/mockApi";
+import { getProjectAnalysis } from "../services/api";
 
 export default function ClipGallery() {
   const navigate = useNavigate();
@@ -24,14 +24,111 @@ export default function ClipGallery() {
   const [clips, setClips] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPreview, setSelectedPreview] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     async function loadClips() {
       try {
-        const data = await getClips();
-        setClips(data);
+        setLoading(true);
+        setError("");
+
+        const savedProject = JSON.parse(
+          localStorage.getItem("currentProject") || "null"
+        );
+
+        if (!savedProject?.id) {
+          throw new Error(
+            "No active project found. Please create a project first."
+          );
+        }
+
+        const data = await getProjectAnalysis(savedProject.id);
+
+        const backendClips = Array.isArray(data?.clips)
+          ? data.clips
+          : [];
+
+        const formattedClips = backendClips.map((clip, index) => {
+          const start = Number(clip.start) || 0;
+          const end = Number(clip.end) || start;
+
+          const duration = Math.max(0, end - start);
+
+          const score = Math.round(
+            (Number(clip.score) || 0) * 100
+          );
+
+          const beatType = String(
+            clip.beat_type || ""
+          ).toLowerCase();
+
+          let category = "Clip Candidate";
+
+          if (beatType === "hook") {
+            category = "Strong Hook";
+          } else if (beatType === "solution") {
+            category = "Solution";
+          } else if (beatType === "benefit") {
+            category = "Benefit";
+          } else if (beatType === "insight") {
+            category = "Key Insight";
+          }
+
+          return {
+            id: clip.clip_id || `clip_${index + 1}`,
+
+            title:
+              clip.hook ||
+              clip.source_text ||
+              `${category} moment`,
+
+            category,
+
+            score: Math.max(
+              0,
+              Math.min(100, score)
+            ),
+
+            start,
+            end,
+
+            duration:
+              Math.round(duration * 10) / 10,
+
+            format: "9:16",
+
+            reason:
+              clip.reason ||
+              "AI identified this segment as having strong short-form potential.",
+
+            sourceText:
+              clip.source_text || "",
+
+            hooks: Array.isArray(clip.hooks)
+              ? clip.hooks
+              : [],
+
+            editPlan:
+              clip.edit_plan || null,
+
+            platformAdaptations:
+              clip.platform_adaptations || null,
+
+            raw: clip,
+          };
+        });
+
+        setClips(formattedClips);
       } catch (error) {
-        console.error("Failed to load clips:", error);
+        console.error(
+          "Failed to load clips:",
+          error
+        );
+
+        setError(
+          error?.message ||
+            "Failed to load AI-generated clips."
+        );
       } finally {
         setLoading(false);
       }
@@ -53,21 +150,52 @@ export default function ClipGallery() {
     return (
       <Layout>
         <div className="clips-loading">
-
           <div className="clips-loading-orb">
             <Scissors size={20} />
           </div>
 
-          <h2>Finding your best moments</h2>
+          <h2>
+            Finding your best moments
+          </h2>
 
           <p>
-            CreatorAI is turning your content into short-form clips.
+            CreatorAI is loading the
+            AI-generated clips from your
+            project.
           </p>
 
           <div className="clips-loading-track">
             <span />
           </div>
+        </div>
+      </Layout>
+    );
+  }
 
+  if (error) {
+    return (
+      <Layout>
+        <div className="clips-loading">
+          <div className="clips-loading-orb">
+            <Scissors size={20} />
+          </div>
+
+          <h2>
+            Couldn't load your clips
+          </h2>
+
+          <p>{error}</p>
+
+          <button
+            className="clip-edit-button"
+            onClick={() => navigate("/assets")}
+            style={{
+              marginTop: "20px",
+            }}
+          >
+            Back to Assets
+            <ArrowRight size={13} />
+          </button>
         </div>
       </Layout>
     );
@@ -75,7 +203,11 @@ export default function ClipGallery() {
 
   const bestScore =
     clips.length > 0
-      ? Math.max(...clips.map((clip) => clip.score))
+      ? Math.max(
+          ...clips.map(
+            (clip) => clip.score
+          )
+        )
       : 0;
 
   return (
@@ -85,7 +217,6 @@ export default function ClipGallery() {
         {/* HEADER */}
 
         <section className="clips-header">
-
           <div>
             <div className="clips-eyebrow">
               <WandSparkles size={14} />
@@ -98,9 +229,11 @@ export default function ClipGallery() {
             </h1>
 
             <p>
-              CreatorAI found the moments with the strongest
-              short-form potential. Preview the ideas, compare
-              their scores and choose one to refine.
+              CreatorAI found the moments
+              with the strongest short-form
+              potential. Preview the ideas,
+              compare their scores and choose
+              one to refine.
             </p>
           </div>
 
@@ -114,9 +247,7 @@ export default function ClipGallery() {
 
             <Check size={15} />
           </div>
-
         </section>
-
 
         {/* SUMMARY */}
 
@@ -145,70 +276,108 @@ export default function ClipGallery() {
 
         </section>
 
-
         {/* SECTION HEADER */}
 
         <section className="clips-section-heading">
-
           <div>
             <LayoutGrid size={15} />
 
             <div>
               <span>CLIP GALLERY</span>
-              <h2>AI-selected moments</h2>
+
+              <h2>
+                AI-selected moments
+              </h2>
             </div>
           </div>
 
           <span className="clips-result-count">
             {clips.length} results
           </span>
-
         </section>
-
 
         {/* CLIP GRID */}
 
-        <section className="clips-grid">
+        {clips.length > 0 ? (
+          <section className="clips-grid">
+            {clips.map((clip, index) => (
+              <ClipCard
+                key={clip.id}
+                clip={clip}
+                index={index}
+                selected={
+                  selectedPreview ===
+                  clip.id
+                }
+                onPreview={() =>
+                  setSelectedPreview(
+                    selectedPreview ===
+                      clip.id
+                      ? null
+                      : clip.id
+                  )
+                }
+                onEdit={() =>
+                  editClip(clip)
+                }
+              />
+            ))}
+          </section>
+        ) : (
+          <div className="clips-loading">
+            <div className="clips-loading-orb">
+              <Scissors size={20} />
+            </div>
 
-          {clips.map((clip, index) => (
-            <ClipCard
-              key={clip.id}
-              clip={clip}
-              index={index}
-              selected={selectedPreview === clip.id}
-              onPreview={() =>
-                setSelectedPreview(
-                  selectedPreview === clip.id
-                    ? null
-                    : clip.id
-                )
+            <h2>
+              No clips found
+            </h2>
+
+            <p>
+              Run AI analysis on your
+              project first.
+            </p>
+
+            <button
+              className="clip-edit-button"
+              onClick={() =>
+                navigate("/assets")
               }
-              onEdit={() => editClip(clip)}
-            />
-          ))}
-
-        </section>
-
+              style={{
+                marginTop: "20px",
+              }}
+            >
+              Go to Asset Library
+              <ArrowRight size={13} />
+            </button>
+          </div>
+        )}
       </div>
     </Layout>
   );
 }
 
 
+/* -------------------------------- */
+/* CLIP CARD                        */
+/* -------------------------------- */
+
 function ClipCard({
   clip,
   index,
   selected,
   onPreview,
-  onEdit
+  onEdit,
 }) {
   return (
     <article
       className={`clip-card ${
-        selected ? "clip-card-selected" : ""
+        selected
+          ? "clip-card-selected"
+          : ""
       }`}
       style={{
-        animationDelay: `${index * 70}ms`
+        animationDelay: `${index * 70}ms`,
       }}
     >
 
@@ -217,6 +386,7 @@ function ClipCard({
       <div className="clip-preview">
 
         <div className="clip-preview-glow clip-glow-one" />
+
         <div className="clip-preview-glow clip-glow-two" />
 
         <div className="clip-rank">
@@ -224,11 +394,9 @@ function ClipCard({
           #{index + 1} AI Pick
         </div>
 
-
         <div className="clip-preview-format">
           9:16
         </div>
-
 
         <button
           className="clip-play-button"
@@ -245,20 +413,22 @@ function ClipCard({
           )}
         </button>
 
-
         {selected && (
           <div className="clip-preview-message">
             <Sparkles size={13} />
 
             <div>
-              <strong>Preview selected</strong>
+              <strong>
+                Preview selected
+              </strong>
+
               <span>
-                Video playback connects here later
+                Video playback connects
+                here later
               </span>
             </div>
           </div>
         )}
-
 
         <div className="clip-preview-bottom">
 
@@ -266,7 +436,9 @@ function ClipCard({
             <Clock3 size={11} />
 
             {formatTime(clip.start)}
+
             {" → "}
+
             {formatTime(clip.end)}
           </span>
 
@@ -275,7 +447,6 @@ function ClipCard({
           </span>
 
         </div>
-
       </div>
 
 
@@ -286,6 +457,7 @@ function ClipCard({
         <div className="clip-content-top">
 
           <div>
+
             <span className="clip-category">
               {clip.category}
             </span>
@@ -293,8 +465,8 @@ function ClipCard({
             <h2>
               {clip.title}
             </h2>
-          </div>
 
+          </div>
 
           <div className="clip-ai-score">
 
@@ -319,19 +491,27 @@ function ClipCard({
         <div className="clip-score-section">
 
           <div>
-            <span>CLIP POTENTIAL</span>
+
+            <span>
+              CLIP POTENTIAL
+            </span>
 
             <strong>
-              {getScoreLabel(clip.score)}
+              {getScoreLabel(
+                clip.score
+              )}
             </strong>
+
           </div>
 
           <div className="clip-score-track">
+
             <span
               style={{
-                width: `${clip.score}%`
+                width: `${clip.score}%`,
               }}
             />
+
           </div>
 
         </div>
@@ -389,11 +569,15 @@ function ClipCard({
 }
 
 
+/* -------------------------------- */
+/* SUMMARY                          */
+/* -------------------------------- */
+
 function Summary({
   icon: Icon,
   title,
   value,
-  detail
+  detail,
 }) {
   return (
     <article className="clip-summary-card">
@@ -403,17 +587,29 @@ function Summary({
       </div>
 
       <div>
-        <span>{title}</span>
 
-        <strong>{value}</strong>
+        <span>
+          {title}
+        </span>
 
-        <p>{detail}</p>
+        <strong>
+          {value}
+        </strong>
+
+        <p>
+          {detail}
+        </p>
+
       </div>
 
     </article>
   );
 }
 
+
+/* -------------------------------- */
+/* SCORE LABEL                      */
+/* -------------------------------- */
 
 function getScoreLabel(score) {
   if (score >= 90) {
@@ -432,16 +628,26 @@ function getScoreLabel(score) {
 }
 
 
-function formatTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
+/* -------------------------------- */
+/* TIME FORMAT                      */
+/* -------------------------------- */
 
-  const remainingSeconds = seconds % 60;
+function formatTime(seconds) {
+  const totalSeconds = Math.round(
+    Number(seconds) || 0
+  );
+
+  const minutes = Math.floor(
+    totalSeconds / 60
+  );
+
+  const remainingSeconds =
+    totalSeconds % 60;
 
   return `${String(minutes).padStart(
     2,
     "0"
-  )}:${String(remainingSeconds).padStart(
-    2,
-    "0"
-  )}`;
+  )}:${String(
+    remainingSeconds
+  ).padStart(2, "0")}`;
 }

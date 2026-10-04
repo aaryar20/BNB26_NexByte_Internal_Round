@@ -72,6 +72,19 @@ def create_project(
     return project
 
 
+@router.get("/projects")
+def get_projects(
+    db: Session = Depends(get_db)
+):
+    projects = (
+        db.query(Project)
+        .order_by(Project.created_at.desc())
+        .all()
+    )
+
+    return projects
+
+
 @router.get(
     "/projects/{project_id}",
     response_model=ProjectResponse

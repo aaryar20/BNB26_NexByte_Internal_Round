@@ -12,34 +12,222 @@ import {
   Lightbulb,
   Target,
   FileText,
-  X
+  X,
+  Save,
+  Brain,
 } from "lucide-react";
 
 import Layout from "../components/Layout";
-import { getScript } from "../services/mockApi";
+
+import {
+  createScript,
+  analyzeProject,
+} from "../services/api";
 
 export default function ScriptView() {
   const navigate = useNavigate();
 
   const [script, setScript] = useState(null);
+  const [scriptText, setScriptText] = useState("");
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [saved, setSaved] = useState(false);
+
   const [search, setSearch] = useState("");
   const [selectedSegment, setSelectedSegment] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadScript() {
-      try {
-        const data = await getScript();
-        setScript(data);
-      } catch (error) {
-        console.error("Failed to load transcript:", error);
-      } finally {
+    loadScriptFromProject();
+  }, []);
+
+  async function loadScriptFromProject() {
+    try {
+      /*
+       * The backend currently does not have a GET script endpoint.
+       *
+       * So we start with a creator-provided script.
+       * The user can edit it below and save it to the backend.
+       */
+
+      const savedProject = JSON.parse(
+        localStorage.getItem("currentProject") || "null"
+      );
+
+      if (!savedProject?.id) {
+        setError(
+          "No active project found. Please create a project first."
+        );
         setLoading(false);
+        return;
       }
+
+      /*
+       * Starter script for the hackathon demo.
+       *
+       * The creator can completely replace this text.
+       */
+      const starterScript = `Today we're going to talk about the biggest problems creators face when making content.
+
+Creators waste hours switching between different tools for scripts, editing, assets and publishing.
+
+You might write your script in one application, store your footage somewhere else and edit everything in another tool.
+
+This constant switching creates repetitive work and makes the entire content process slower.
+
+CreatorAi brings the entire workflow into one intelligent platform.
+
+It understands your script, understands your footage and finds the parts that actually matter.
+
+It can then turn a long video into short clips, generate hooks and adapt the content for different platforms.
+
+The creator still controls every edit because AI suggestions remain editable.
+
+Instead of replacing creators, CreatorAi removes the repetitive work so they can focus on creating.`;
+
+      setScriptText(starterScript);
+
+      /*
+       * Build a temporary display transcript from the script.
+       * The real backend analysis will use the saved script.
+       */
+      const segments = starterScript
+        .split(/\n\n+/)
+        .filter(Boolean)
+        .map((text, index) => ({
+          id: `script-${index + 1}`,
+          start: `${index + 1}`,
+          end: `${index + 2}`,
+          text,
+          type:
+            index === 0
+              ? "hook"
+              : index === 4
+              ? "insight"
+              : "candidate",
+          highlight:
+            index === 0 ||
+            index === 4 ||
+            index === 5 ||
+            index === 6,
+          score:
+            index === 0
+              ? 96
+              : index === 4
+              ? 91
+              : index === 5
+              ? 88
+              : 82,
+        }));
+
+      setScript({
+        duration: "1:09",
+        language: "English",
+        segments,
+      });
+    } catch (error) {
+      console.error("Failed to load script:", error);
+
+      setError(
+        "Unable to prepare the script workspace."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleSaveScript() {
+    const savedProject = JSON.parse(
+      localStorage.getItem("currentProject") || "null"
+    );
+
+    if (!savedProject?.id) {
+      setError(
+        "No active project found. Please create a project first."
+      );
+      return;
     }
 
-    loadScript();
-  }, []);
+    if (!scriptText.trim()) {
+      setError("Please enter a script before saving.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+    setSaved(false);
+
+    try {
+      await createScript(
+        savedProject.id,
+        scriptText.trim()
+      );
+
+      setSaved(true);
+    } catch (error) {
+      console.error("Failed to save script:", error);
+
+      setError(
+        error.message ||
+          "Failed to save the script."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAnalyze() {
+    const savedProject = JSON.parse(
+      localStorage.getItem("currentProject") || "null"
+    );
+
+    if (!savedProject?.id) {
+      setError(
+        "No active project found. Please create a project first."
+      );
+      return;
+    }
+
+    if (!scriptText.trim()) {
+      setError("Please enter a script before analyzing.");
+      return;
+    }
+
+    setAnalyzing(true);
+    setError("");
+
+    try {
+      /*
+       * Always save the latest version before analysis.
+       */
+      await createScript(
+        savedProject.id,
+        scriptText.trim()
+      );
+
+      setSaved(true);
+
+      /*
+       * Now run the real CreatorAI pipeline.
+       */
+      await analyzeProject(savedProject.id);
+
+      /*
+       * Move to the results/suggestions stage.
+       */
+      navigate("/suggestions");
+    } catch (error) {
+      console.error("Analysis failed:", error);
+
+      setError(
+        error.message ||
+          "Something went wrong while analyzing the project."
+      );
+    } finally {
+      setAnalyzing(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -50,7 +238,9 @@ export default function ScriptView() {
             <Sparkles size={19} />
           </div>
 
-          <h2>Preparing your transcript</h2>
+          <h2>
+            Preparing your transcript
+          </h2>
 
           <p>
             CreatorAI is organizing your content intelligence.
@@ -69,27 +259,34 @@ export default function ScriptView() {
     return (
       <Layout>
         <div className="script-error-state">
+
           <FileText size={24} />
 
-          <h2>Transcript unavailable</h2>
+          <h2>
+            Script unavailable
+          </h2>
 
           <p>
-            We couldn't load this project's transcript.
+            {error ||
+              "We couldn't load this project's script."}
           </p>
+
         </div>
       </Layout>
     );
   }
 
-  const filteredSegments = script.segments.filter((segment) =>
-    segment.text
-      .toLowerCase()
-      .includes(search.toLowerCase())
+  const filteredSegments = script.segments.filter(
+    (segment) =>
+      segment.text
+        .toLowerCase()
+        .includes(search.toLowerCase())
   );
 
-  const highlightedSegments = script.segments.filter(
-    (segment) => segment.highlight
-  );
+  const highlightedSegments =
+    script.segments.filter(
+      (segment) => segment.highlight
+    );
 
   return (
     <Layout>
@@ -100,6 +297,7 @@ export default function ScriptView() {
         <section className="script-header">
 
           <div>
+
             <div className="script-eyebrow">
               <WandSparkles size={13} />
               AI ANALYSIS
@@ -111,24 +309,69 @@ export default function ScriptView() {
             </h1>
 
             <p>
-              Explore your transcript, understand the story and
-              discover the moments CreatorAI believes are worth
-              turning into clips.
+              Explore your script, understand the story and
+              prepare the content CreatorAI will analyze for
+              high-value clips.
             </p>
+
           </div>
 
-
-          <button
-            onClick={() => navigate("/suggestions")}
-            className="script-suggestions-button"
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              alignItems: "center",
+            }}
           >
-            <Sparkles size={15} />
-            AI Suggestions
-            <ArrowRight size={14} />
-          </button>
+
+            <button
+              onClick={handleSaveScript}
+              className="script-suggestions-button"
+              disabled={saving}
+            >
+              <Save size={15} />
+
+              {saving
+                ? "Saving..."
+                : saved
+                ? "Saved"
+                : "Save Script"}
+            </button>
+
+            <button
+              onClick={handleAnalyze}
+              className="script-suggestions-button"
+              disabled={analyzing}
+            >
+              <Brain size={15} />
+
+              {analyzing
+                ? "Analyzing..."
+                : "Analyze Script"}
+
+              <ArrowRight size={14} />
+            </button>
+
+          </div>
 
         </section>
 
+        {/* ERROR */}
+
+        {error && (
+          <div
+            style={{
+              marginBottom: "20px",
+              padding: "14px 18px",
+              borderRadius: "12px",
+              background: "#f9e9e9",
+              color: "#72243a",
+              fontSize: "14px",
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         {/* INFORMATION */}
 
@@ -159,7 +402,6 @@ export default function ScriptView() {
 
         </section>
 
-
         {/* MAIN WORKSPACE */}
 
         <section className="script-workspace">
@@ -171,19 +413,52 @@ export default function ScriptView() {
             <div className="transcript-panel-header">
 
               <div>
-                <span>TRANSCRIPT</span>
+                <span>YOUR SCRIPT</span>
 
                 <h2>
-                  Your conversation
+                  Content script
                 </h2>
               </div>
 
               <span className="transcript-segment-count">
-                {script.segments.length} segments
+                {script.segments.length} sections
               </span>
 
             </div>
 
+            {/* SCRIPT EDITOR */}
+
+            <div
+              style={{
+                padding: "20px",
+                borderBottom:
+                  "1px solid rgba(80, 50, 60, 0.08)",
+              }}
+            >
+
+              <textarea
+                value={scriptText}
+                onChange={(event) => {
+                  setScriptText(event.target.value);
+                  setSaved(false);
+                }}
+                placeholder="Paste or write your script here..."
+                rows={12}
+                style={{
+                  width: "100%",
+                  resize: "vertical",
+                  border: "1px solid rgba(80, 50, 60, 0.12)",
+                  borderRadius: "14px",
+                  padding: "16px",
+                  background: "rgba(255,255,255,0.55)",
+                  fontSize: "15px",
+                  lineHeight: "1.7",
+                  outline: "none",
+                  fontFamily: "inherit",
+                }}
+              />
+
+            </div>
 
             {/* SEARCH */}
 
@@ -210,30 +485,35 @@ export default function ScriptView() {
 
             </div>
 
-
             {/* SEGMENTS */}
 
             <div className="transcript-segments">
 
               {filteredSegments.length > 0 ? (
 
-                filteredSegments.map((segment, index) => (
-                  <TranscriptSegment
-                    key={segment.id}
-                    segment={segment}
-                    index={index}
-                    selected={
-                      selectedSegment === segment.id
-                    }
-                    onSelect={() =>
-                      setSelectedSegment(
-                        selectedSegment === segment.id
-                          ? null
-                          : segment.id
-                      )
-                    }
-                  />
-                ))
+                filteredSegments.map(
+                  (segment, index) => (
+
+                    <TranscriptSegment
+                      key={segment.id}
+                      segment={segment}
+                      index={index}
+                      selected={
+                        selectedSegment ===
+                        segment.id
+                      }
+                      onSelect={() =>
+                        setSelectedSegment(
+                          selectedSegment ===
+                            segment.id
+                            ? null
+                            : segment.id
+                        )
+                      }
+                    />
+
+                  )
+                )
 
               ) : (
 
@@ -241,13 +521,17 @@ export default function ScriptView() {
 
                   <Search size={19} />
 
-                  <h3>No matching dialogue</h3>
+                  <h3>
+                    No matching dialogue
+                  </h3>
 
                   <p>
                     Try searching for another word or phrase.
                   </p>
 
-                  <button onClick={() => setSearch("")}>
+                  <button
+                    onClick={() => setSearch("")}
+                  >
                     Clear search
                   </button>
 
@@ -258,7 +542,6 @@ export default function ScriptView() {
             </div>
 
           </div>
-
 
           {/* RIGHT SIDE */}
 
@@ -276,18 +559,19 @@ export default function ScriptView() {
 
                 <div>
                   <span>AI SUMMARY</span>
-                  <h2>Content overview</h2>
+                  <h2>
+                    Content overview
+                  </h2>
                 </div>
 
               </div>
 
-
               <p className="summary-description">
-                This video explains how creators can use
-                artificial intelligence to reduce editing time
-                and automatically identify high-value moments.
+                This script explains how CreatorAI can reduce
+                editing time by understanding creator intent,
+                matching scripts to footage and identifying
+                high-value moments.
               </p>
-
 
               <div className="summary-detail">
 
@@ -304,7 +588,6 @@ export default function ScriptView() {
                 </div>
 
               </div>
-
 
               <div className="summary-detail">
 
@@ -324,7 +607,6 @@ export default function ScriptView() {
 
             </div>
 
-
             {/* INTELLIGENCE CARD */}
 
             <div className="script-insight-card">
@@ -341,8 +623,8 @@ export default function ScriptView() {
               </h3>
 
               <p>
-                The first 8 seconds contain a clear pain-point
-                hook and could work especially well as a
+                The opening contains a clear pain-point hook
+                and could work especially well as a
                 short-form opening.
               </p>
 
@@ -360,9 +642,13 @@ export default function ScriptView() {
               </div>
 
               <button
-                onClick={() => navigate("/suggestions")}
+                onClick={handleAnalyze}
+                disabled={analyzing}
               >
-                See recommendation
+                {analyzing
+                  ? "Analyzing..."
+                  : "Analyze & create clips"}
+
                 <ArrowRight size={13} />
               </button>
 
@@ -378,11 +664,15 @@ export default function ScriptView() {
 }
 
 
+/* -------------------------------- */
+/* SCRIPT INFO                      */
+/* -------------------------------- */
+
 function ScriptInfo({
   icon: Icon,
   label,
   value,
-  accent
+  accent,
 }) {
   return (
     <div
@@ -405,11 +695,15 @@ function ScriptInfo({
 }
 
 
+/* -------------------------------- */
+/* TRANSCRIPT SEGMENT               */
+/* -------------------------------- */
+
 function TranscriptSegment({
   segment,
   index,
   selected,
-  onSelect
+  onSelect,
 }) {
   const label =
     segment.type === "hook"
@@ -430,7 +724,7 @@ function TranscriptSegment({
           : ""
       }`}
       style={{
-        animationDelay: `${index * 35}ms`
+        animationDelay: `${index * 35}ms`,
       }}
       onClick={onSelect}
     >
@@ -455,13 +749,11 @@ function TranscriptSegment({
 
       </div>
 
-
       <div className="segment-content">
 
         <p>
           {segment.text}
         </p>
-
 
         {segment.highlight && (
           <div className="segment-intelligence">
@@ -472,6 +764,7 @@ function TranscriptSegment({
             </span>
 
             <div className="segment-score">
+
               <span>
                 AI SCORE
               </span>
@@ -479,6 +772,7 @@ function TranscriptSegment({
               <strong>
                 {segment.score}%
               </strong>
+
             </div>
 
           </div>
