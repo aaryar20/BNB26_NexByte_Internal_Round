@@ -1,0 +1,31 @@
+CREATORAI DEMO SCRIPT
+
+HOOK
+
+You're probably spending hours editing videos that AI could edit in minutes.
+
+BODY
+
+Creating short-form content sounds simple, but creators spend hours watching recordings, finding the best moments, trimming clips, adding captions and preparing content for different platforms.
+
+CreatorAI changes that.
+
+Upload one recording and its script.
+
+CreatorAI analyzes the content, identifies strong hooks, discovers high-potential moments and recommends the best clips.
+
+The creator can then review AI suggestions, choose a clip and customize captions, audio and aspect ratio inside the editor.
+
+Once everything looks right, CreatorAI sends the production plan to the video engine, where FFmpeg creates the final video.
+
+The result is platform-ready content without hours of repetitive editing.
+
+ENDING
+
+One recording.
+
+Multiple platforms.
+
+Minutes instead of hours.
+
+That's CreatorAI.
