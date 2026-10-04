@@ -1,0 +1,39 @@
+[
+  {
+    "id": 1,
+    "type": "Hook",
+    "title": "Strengthen your opening",
+    "original": "Most creators spend hours every week editing their content.",
+    "suggestion": "You're wasting hours every week editing content manually.",
+    "reason": "Direct pain-point language can create a stronger first-second hook.",
+    "score": 96
+  },
+  {
+    "id": 2,
+    "type": "Clip",
+    "title": "High-potential short clip",
+    "start": "00:15",
+    "end": "00:38",
+    "suggestion": "Create a 23-second vertical clip from this section.",
+    "reason": "This section contains a complete standalone insight.",
+    "score": 91
+  },
+  {
+    "id": 3,
+    "type": "Pacing",
+    "title": "Improve pacing",
+    "start": "00:32",
+    "end": "00:38",
+    "suggestion": "Tighten pauses and remove approximately 2 seconds.",
+    "reason": "Faster pacing may improve short-form retention.",
+    "score": 88
+  },
+  {
+    "id": 4,
+    "type": "Caption",
+    "title": "Add an attention caption",
+    "suggestion": "AI just changed the creator workflow.",
+    "reason": "Short on-screen text reinforces the main idea.",
+    "score": 86
+  }
+]
