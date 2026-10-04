@@ -1,6 +1,48 @@
+<<<<<<< HEAD
 .venv/
 __pycache__/
 inputs/
 outputs/
 *.mp4
 *.mp3
+=======
+# Virtual environments
+venv/
+venv312/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+.env.*
+
+# Database
+*.db
+
+# Uploaded/generated media
+uploads/
+outputs/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.m4a
+
+# macOS
+.DS_Store
+
+.vscode/
+.idea/frontend/node_modules/
+frontend/dist/
+frontend/.env
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+>>>>>>> 7a2cbccd05801a24ce6cee285476271af4f5dc9c

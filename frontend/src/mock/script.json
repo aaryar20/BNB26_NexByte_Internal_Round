@@ -1,0 +1,58 @@
+{
+  "project_id": "proj001",
+  "duration": "04:32",
+  "language": "English",
+  "segments": [
+    {
+      "id": 1,
+      "start": "00:00",
+      "end": "00:08",
+      "text": "Most creators spend hours every week editing their content.",
+      "highlight": true,
+      "type": "hook",
+      "score": 96
+    },
+    {
+      "id": 2,
+      "start": "00:08",
+      "end": "00:15",
+      "text": "But the real problem isn't actually creating the content.",
+      "highlight": false,
+      "type": "normal"
+    },
+    {
+      "id": 3,
+      "start": "00:15",
+      "end": "00:23",
+      "text": "It's finding the moments that people actually care about.",
+      "highlight": true,
+      "type": "insight",
+      "score": 91
+    },
+    {
+      "id": 4,
+      "start": "00:23",
+      "end": "00:32",
+      "text": "That's where artificial intelligence completely changes the workflow.",
+      "highlight": false,
+      "type": "normal"
+    },
+    {
+      "id": 5,
+      "start": "00:32",
+      "end": "00:38",
+      "text": "Instead of watching the entire recording, AI can identify the strongest moments automatically.",
+      "highlight": true,
+      "type": "clip",
+      "score": 89
+    },
+    {
+      "id": 6,
+      "start": "00:38",
+      "end": "00:48",
+      "text": "You can then turn those moments into short videos designed for social platforms.",
+      "highlight": false,
+      "type": "normal"
+    }
+  ]
+}

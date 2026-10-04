@@ -1,0 +1,26 @@
+[
+  {
+    "id": "proj001",
+    "name": "Creator Growth Strategy",
+    "platform": "Instagram",
+    "status": "AI Analysis",
+    "progress": 65,
+    "updated": "2 minutes ago"
+  },
+  {
+    "id": "proj002",
+    "name": "Startup Marketing Reel",
+    "platform": "YouTube Shorts",
+    "status": "Ready to Publish",
+    "progress": 100,
+    "updated": "1 hour ago"
+  },
+  {
+    "id": "proj003",
+    "name": "Productivity Tips",
+    "platform": "TikTok",
+    "status": "Editing",
+    "progress": 80,
+    "updated": "Yesterday"
+  }
+]
