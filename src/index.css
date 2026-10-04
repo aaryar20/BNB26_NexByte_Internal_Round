@@ -10452,3 +10452,43 @@ aside {
     flex: 1;
   }
 }
+/* ==============================================
+   GLOBAL INTERACTIVE WATER EFFECT
+   ============================================== */
+
+.interactive-water-canvas {
+  position: fixed;
+  inset: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  pointer-events: none;
+
+  z-index: 99999;
+
+  opacity: 0.8;
+
+  mix-blend-mode: multiply;
+}
+
+button,
+a,
+[role="button"] {
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .interactive-water-canvas {
+    display: none;
+  }
+}

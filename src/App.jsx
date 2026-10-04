@@ -11,9 +11,15 @@ import Editor from "./pages/Editor";
 import PlatformPreview from "./pages/PlatformPreview";
 import Export from "./pages/Export";
 
+import InteractiveEffects from "./components/InteractiveEffects";
+import ClickSound from "./components/ClickSound";
+
 function App() {
   return (
     <BrowserRouter>
+
+      <InteractiveEffects />
+      <ClickSound />
 
       <Routes>
 
@@ -28,43 +34,43 @@ function App() {
         />
 
         <Route
-        path="/new-project"
-        element={<NewProject />}
+          path="/new-project"
+          element={<NewProject />}
         />
 
         <Route
-        path="/assets"
-        element={<AssetLibrary />}
+          path="/assets"
+          element={<AssetLibrary />}
         />
 
         <Route
-        path="/script"
-        element={<ScriptView />}
+          path="/script"
+          element={<ScriptView />}
         />
 
         <Route
-        path="/suggestions"
-        element={<AISuggestions />}
+          path="/suggestions"
+          element={<AISuggestions />}
         />
 
         <Route
-        path="/clips"
-        element={<ClipGallery />}
+          path="/clips"
+          element={<ClipGallery />}
         />
 
         <Route
-        path="/editor"
-        element={<Editor />}
+          path="/editor"
+          element={<Editor />}
         />
 
         <Route
-        path="/preview"
-        element={<PlatformPreview />}
+          path="/preview"
+          element={<PlatformPreview />}
         />
 
         <Route
-        path="/export"
-        element={<Export />}
+          path="/export"
+          element={<Export />}
         />
 
       </Routes>
