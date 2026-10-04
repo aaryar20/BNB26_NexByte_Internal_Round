@@ -644,3 +644,74 @@ This project is licensed under the **MIT License**.
 
 See the [LICENSE](LICENSE) file for details.
 >>>>>>> 7a2cbccd05801a24ce6cee285476271af4f5dc9c
+---
+
+## CreatorAI Product Workflow
+
+**Idea → Script → Recorded → AI Analysis → Best Clips → Edit → Render → Ready to Publish**
+
+## Creator Intelligence
+
+CreatorAI provides actionable creator analytics:
+
+- Top Hooks
+- Best Clips
+- Average Engagement
+- Content Patterns
+- Production Time Saved
+
+## Core Features
+
+- AI-assisted content analysis
+- Hook identification
+- Best clip ranking
+- AI editing suggestions
+- Editable production plans
+- Creator Intelligence analytics
+- Video trimming
+- Multi-clip concatenation
+- Dynamic captions
+- Original audio control
+- Background music
+- Audio ducking
+- Multi-platform aspect ratios
+- Platform preview
+- Final MP4 rendering
+
+## Technology Stack
+
+**Frontend:** React + Vite  
+**Backend:** FastAPI  
+**Video Processing:** FFmpeg  
+**Architecture:** Modular AI analysis + video processing pipeline
+
+## System Architecture
+
+Video + Script  
+↓  
+React Creator Workspace  
+↓  
+FastAPI Backend  
+↓  
+AI Content Analysis  
+↓  
+Hooks + Beats + Clip Ranking  
+↓  
+Editable Production Plan  
+↓  
+Creator Editor  
+↓  
+FFmpeg Video Engine  
+↓  
+Platform Preview  
+↓  
+Final MP4  
+↓  
+Ready to Publish
+
+## Team Responsibilities
+
+**Member 1:** Backend + AI  
+**Member 2:** Frontend + Creator Workspace  
+**Member 3:** Video Processing Engine  
+**Member 4:** Product + Analytics + QA
