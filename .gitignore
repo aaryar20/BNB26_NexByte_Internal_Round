@@ -1,3 +1,11 @@
+<<<<<<< HEAD
+.venv/
+__pycache__/
+inputs/
+outputs/
+*.mp4
+*.mp3
+=======
 # Virtual environments
 venv/
 venv312/
@@ -37,3 +45,4 @@ node_modules/
 frontend/node_modules/
 frontend/dist/
 frontend/.env
+>>>>>>> 7a2cbccd05801a24ce6cee285476271af4f5dc9c

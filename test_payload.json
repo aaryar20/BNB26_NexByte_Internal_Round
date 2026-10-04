@@ -1,0 +1,20 @@
+{
+  "source": "inputs/sample.mp4",
+  "operations": [
+    {
+      "type": "trim",
+      "start": 0,
+      "end": 8
+    },
+    {
+      "type": "caption",
+      "text": "This has background music now"
+    },
+    {
+      "type": "music",
+      "source": "inputs/music.mp3",
+      "volume": 0.15
+    }
+  ],
+  "format": "9:16"
+}
